@@ -23,9 +23,9 @@ import org.springframework.web.multipart.MultipartFile;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -57,7 +57,7 @@ public class ChatController extends ABaseController {
     @GlobalInterceptor
     public ResponseVO sendMessage(HttpServletRequest request,
                                   @NotEmpty String contactId,
-                                  @NotEmpty @Max(500) String messageContent,
+                                  @NotEmpty @Size(max = 500) String messageContent,
                                   @NotNull Integer messageType,
                                   Long fileSize,
                                   String fileName,
