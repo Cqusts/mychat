@@ -144,6 +144,13 @@
             <version>${captcha.verion}</version>
         </dependency>
 
+        <!--Nashorn JS引擎（Java15+移除了内置Nashorn，easy-captcha算术验证码依赖它）-->
+        <dependency>
+            <groupId>org.openjdk.nashorn</groupId>
+            <artifactId>nashorn-core</artifactId>
+            <version>15.4</version>
+        </dependency>
+
         <!--netty-->
         <dependency>
             <groupId>io.netty</groupId>
