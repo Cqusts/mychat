@@ -18,9 +18,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.annotation.Resource;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotEmpty;
+import jakarta.annotation.Resource;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;

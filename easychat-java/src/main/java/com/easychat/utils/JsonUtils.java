@@ -1,9 +1,9 @@
 package com.easychat.utils;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.serializer.SerializerFeature;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
 import com.easychat.entity.enums.ResponseCodeEnum;
 import com.easychat.exception.BusinessException;
 import org.slf4j.Logger;
@@ -15,7 +15,7 @@ public class JsonUtils {
     private static final Logger logger = LoggerFactory.getLogger(JsonUtils.class);
 
 
-    public static SerializerFeature[] FEATURES = new SerializerFeature[]{SerializerFeature.WriteMapNullValue};
+    public static JSONWriter.Feature[] FEATURES = new JSONWriter.Feature[]{JSONWriter.Feature.WriteMapNullValue};
 
     public static String convertObj2Json(Object obj) {
         return JSON.toJSONString(obj, FEATURES);
