@@ -60,6 +60,9 @@ public class BenchmarkMain {
         System.out.println();
         System.out.println("gen-tokens 选项:");
         System.out.println("  --redis-url <url>       Redis地址 (默认 redis://localhost:6379)");
+        System.out.println("  --db-url <url>          MySQL JDBC地址 (默认 jdbc:mysql://127.0.0.1:3306/easychat)");
+        System.out.println("  --db-user <user>        MySQL用户名 (默认 root)");
+        System.out.println("  --db-password <pwd>     MySQL密码 (默认 111111)");
         System.out.println("  --count <n>             生成Token数量 (默认 5000)");
         System.out.println("  --output <file>         输出文件路径 (默认 tokens.txt)");
     }
