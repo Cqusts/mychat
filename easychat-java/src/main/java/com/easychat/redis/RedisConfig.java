@@ -17,10 +17,10 @@ import org.springframework.data.redis.serializer.RedisSerializer;
 public class RedisConfig<V> {
     private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
 
-    @Value("${spring.redis.host:}")
+    @Value("${spring.data.redis.host:}")
     private String redisHost;
 
-    @Value("${spring.redis.port:}")
+    @Value("${spring.data.redis.port:}")
     private Integer redisPort;
 
     @Bean(name = "redissonClient", destroyMethod = "shutdown")

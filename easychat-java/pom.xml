@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.6.1</version>
+        <version>3.2.5</version>
         <relativePath/>
     </parent>
 
@@ -21,25 +21,26 @@
 
     <properties>
 	 <codeversion>8371844953</codeversion>
-        <java.version>1.8</java.version>
+        <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
         <skipTests>true</skipTests>
         <codeversion>7164461598</codeversion>
-        <springboot.version>2.6.1</springboot.version>
-        <mybatis.version>1.3.2</mybatis.version>
-        <logback.version>1.2.10</logback.version>
-        <mysql.version>8.0.23</mysql.version>
-        <aspectjweaver.version>1.9.4</aspectjweaver.version>
-        <okhttp3.version>3.2.0</okhttp3.version>
-        <fastjson.version>1.2.66</fastjson.version>
-        <commons.lang3.version>3.4</commons.lang3.version>
-        <commons.codec.version>1.9</commons.codec.version>
-        <commons.io.version>2.5</commons.io.version>
+        <springboot.version>3.2.5</springboot.version>
+        <mybatis.version>3.0.3</mybatis.version>
+        <logback.version>1.4.14</logback.version>
+        <mysql.version>8.0.33</mysql.version>
+        <aspectjweaver.version>1.9.21</aspectjweaver.version>
+        <okhttp3.version>4.12.0</okhttp3.version>
+        <fastjson.version>2.0.47</fastjson.version>
+        <commons.lang3.version>3.14.0</commons.lang3.version>
+        <commons.codec.version>1.16.1</commons.codec.version>
+        <commons.io.version>2.15.1</commons.io.version>
         <captcha.verion>1.6.2</captcha.verion>
-        <netty.version>4.1.50.Final</netty.version>
-        <redisson.version>3.23.5</redisson.version>
+        <netty.version>4.1.107.Final</netty.version>
+        <redisson.version>3.27.2</redisson.version>
+        <spring-ai.version>1.0.0-M6</spring-ai.version>
     </properties>
 
     <dependencies>
@@ -67,7 +68,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
-            <version>${springboot.version}</version>
         </dependency>
         <!--mybatis-->
         <dependency>
@@ -79,8 +79,8 @@
 
         <!-- 数据库-->
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <version>${mysql.version}</version>
         </dependency>
 
@@ -113,8 +113,8 @@
 
         <!--fastjson-->
         <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>fastjson</artifactId>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
             <version>${fastjson.version}</version>
         </dependency>
 
@@ -156,14 +156,32 @@
             <artifactId>redisson</artifactId>
             <version>${redisson.version}</version>
         </dependency>
+
+        <!--Spring AI OpenAI Starter（兼容所有OpenAI协议的大模型）-->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <build>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>2.2.6.RELEASE</version>
+                <version>${springboot.version}</version>
                 <configuration>
                     <mainClass>com.easychat.EasyChatApplication</mainClass>
                 </configuration>
