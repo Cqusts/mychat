@@ -9,6 +9,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
@@ -35,7 +36,7 @@ public class AGlobalExceptionHandlerController extends ABaseController {
             ajaxResponse.setCode(biz.getCode() == null ? ResponseCodeEnum.CODE_600.getCode() : biz.getCode());
             ajaxResponse.setInfo(biz.getMessage());
             ajaxResponse.setStatus(STATUC_ERROR);
-        } else if (e instanceof BindException || e instanceof MethodArgumentTypeMismatchException) {
+        } else if (e instanceof BindException || e instanceof MethodArgumentTypeMismatchException || e instanceof HandlerMethodValidationException) {
             //参数类型错误
             ajaxResponse.setCode(ResponseCodeEnum.CODE_600.getCode());
             ajaxResponse.setInfo(ResponseCodeEnum.CODE_600.getMsg());
