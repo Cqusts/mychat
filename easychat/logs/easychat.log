@@ -1,0 +1,709 @@
+2025-11-14 18:23:26 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 18:23:26 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 21900 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 18:23:26 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 18:23:26 [WARN][org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext][refresh][591]-> Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanDefinitionStoreException: Failed to parse configuration class [com.easychat.EasyChatApplication]; nested exception is java.io.FileNotFoundException: class path resource [com/easychat/controller/ABaseController.class] cannot be opened because it does not exist
+2025-11-14 18:23:26 [ERROR][org.springframework.boot.SpringApplication][reportFailure][819]-> Application run failed
+org.springframework.beans.factory.BeanDefinitionStoreException: Failed to parse configuration class [com.easychat.EasyChatApplication]; nested exception is java.io.FileNotFoundException: class path resource [com/easychat/controller/ABaseController.class] cannot be opened because it does not exist
+	at org.springframework.context.annotation.ConfigurationClassParser.parse(ConfigurationClassParser.java:189)
+	at org.springframework.context.annotation.ConfigurationClassPostProcessor.processConfigBeanDefinitions(ConfigurationClassPostProcessor.java:331)
+	at org.springframework.context.annotation.ConfigurationClassPostProcessor.postProcessBeanDefinitionRegistry(ConfigurationClassPostProcessor.java:247)
+	at org.springframework.context.support.PostProcessorRegistrationDelegate.invokeBeanDefinitionRegistryPostProcessors(PostProcessorRegistrationDelegate.java:311)
+	at org.springframework.context.support.PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(PostProcessorRegistrationDelegate.java:112)
+	at org.springframework.context.support.AbstractApplicationContext.invokeBeanFactoryPostProcessors(AbstractApplicationContext.java:746)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:564)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:145)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:730)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:412)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:302)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1301)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1290)
+	at com.easychat.EasyChatApplication.main(EasyChatApplication.java:30)
+Caused by: java.io.FileNotFoundException: class path resource [com/easychat/controller/ABaseController.class] cannot be opened because it does not exist
+	at org.springframework.core.io.ClassPathResource.getInputStream(ClassPathResource.java:199)
+	at org.springframework.core.type.classreading.SimpleMetadataReader.getClassReader(SimpleMetadataReader.java:55)
+	at org.springframework.core.type.classreading.SimpleMetadataReader.<init>(SimpleMetadataReader.java:49)
+	at org.springframework.core.type.classreading.SimpleMetadataReaderFactory.getMetadataReader(SimpleMetadataReaderFactory.java:103)
+	at org.springframework.boot.type.classreading.ConcurrentReferenceCachingMetadataReaderFactory.createMetadataReader(ConcurrentReferenceCachingMetadataReaderFactory.java:86)
+	at org.springframework.boot.type.classreading.ConcurrentReferenceCachingMetadataReaderFactory.getMetadataReader(ConcurrentReferenceCachingMetadataReaderFactory.java:73)
+	at org.springframework.core.type.classreading.SimpleMetadataReaderFactory.getMetadataReader(SimpleMetadataReaderFactory.java:81)
+	at org.springframework.context.annotation.ConfigurationClassParser.asSourceClass(ConfigurationClassParser.java:696)
+	at org.springframework.context.annotation.ConfigurationClassParser$SourceClass.getSuperClass(ConfigurationClassParser.java:1010)
+	at org.springframework.context.annotation.ConfigurationClassParser.doProcessConfigurationClass(ConfigurationClassParser.java:341)
+	at org.springframework.context.annotation.ConfigurationClassParser.processConfigurationClass(ConfigurationClassParser.java:250)
+	at org.springframework.context.annotation.ConfigurationClassParser.parse(ConfigurationClassParser.java:199)
+	at org.springframework.context.annotation.ConfigurationClassParser.doProcessConfigurationClass(ConfigurationClassParser.java:304)
+	at org.springframework.context.annotation.ConfigurationClassParser.processConfigurationClass(ConfigurationClassParser.java:250)
+	at org.springframework.context.annotation.ConfigurationClassParser.parse(ConfigurationClassParser.java:207)
+	at org.springframework.context.annotation.ConfigurationClassParser.parse(ConfigurationClassParser.java:175)
+	... 13 common frames omitted
+2025-11-14 18:25:46 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 18:25:46 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 23952 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 18:25:46 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 18:25:47 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][multipleStoresDetected][262]-> Multiple Spring Data modules found, entering strict repository configuration mode!
+2025-11-14 18:25:47 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][132]-> Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-11-14 18:25:47 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][201]-> Finished Spring Data repository scanning in 16 ms. Found 0 Redis repository interfaces.
+2025-11-14 18:25:47 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][initialize][108]-> Tomcat initialized with port(s): 5050 (http)
+2025-11-14 18:25:47 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Initializing ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:25:47 [INFO][org.apache.catalina.core.StandardService][log][173]-> Starting service [Tomcat]
+2025-11-14 18:25:47 [INFO][org.apache.catalina.core.StandardEngine][log][173]-> Starting Servlet engine: [Apache Tomcat/9.0.55]
+2025-11-14 18:25:47 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring embedded WebApplicationContext
+2025-11-14 18:25:47 [INFO][org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext][prepareWebApplicationContext][290]-> Root WebApplicationContext: initialization completed in 1036 ms
+2025-11-14 18:25:48 [INFO][org.redisson.Version][logVersion][41]-> Redisson 3.12.3
+2025-11-14 18:25:48 [INFO][org.redisson.connection.pool.MasterPubSubConnectionPool][lambda$run$0][168]-> 1 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 18:25:48 [INFO][org.redisson.connection.pool.MasterConnectionPool][lambda$run$0][168]-> 24 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 18:25:48 [INFO][org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver][<init>][58]-> Exposing 1 endpoint(s) beneath base path '/actuator'
+2025-11-14 18:25:48 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Starting ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:25:48 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][start][220]-> Tomcat started on port(s): 5050 (http) with context path '/api'
+2025-11-14 18:25:48 [INFO][com.easychat.EasyChatApplication][logStarted][61]-> Started EasyChatApplication in 2.684 seconds (JVM running for 2.922)
+2025-11-14 18:25:48 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][110]-> HikariCPDatasource - Starting...
+2025-11-14 18:25:49 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][123]-> HikariCPDatasource - Start completed.
+2025-11-14 18:25:49 [INFO][com.easychat.InitRun][initRobotUser][79]-> 机器人用户初始化成功
+2025-11-14 18:25:49 [ERROR][com.easychat.InitRun][run][47]-> 服务启动成功，可以开始愉快的开发了
+2025-11-14 18:25:49 [INFO][com.easychat.websocket.netty.NettyWebSocketStarter][run][88]-> Netty服务端启动成功,端口:5051
+2025-11-14 18:27:59 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 18:27:59 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 1440 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 18:27:59 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 18:27:59 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][multipleStoresDetected][262]-> Multiple Spring Data modules found, entering strict repository configuration mode!
+2025-11-14 18:27:59 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][132]-> Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-11-14 18:27:59 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][201]-> Finished Spring Data repository scanning in 16 ms. Found 0 Redis repository interfaces.
+2025-11-14 18:28:00 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][initialize][108]-> Tomcat initialized with port(s): 5050 (http)
+2025-11-14 18:28:00 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Initializing ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:28:00 [INFO][org.apache.catalina.core.StandardService][log][173]-> Starting service [Tomcat]
+2025-11-14 18:28:00 [INFO][org.apache.catalina.core.StandardEngine][log][173]-> Starting Servlet engine: [Apache Tomcat/9.0.55]
+2025-11-14 18:28:00 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring embedded WebApplicationContext
+2025-11-14 18:28:00 [INFO][org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext][prepareWebApplicationContext][290]-> Root WebApplicationContext: initialization completed in 931 ms
+2025-11-14 18:28:00 [INFO][org.redisson.Version][logVersion][41]-> Redisson 3.12.3
+2025-11-14 18:28:00 [INFO][org.redisson.connection.pool.MasterPubSubConnectionPool][lambda$run$0][168]-> 1 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 18:28:00 [INFO][org.redisson.connection.pool.MasterConnectionPool][lambda$run$0][168]-> 24 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 18:28:01 [INFO][org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver][<init>][58]-> Exposing 1 endpoint(s) beneath base path '/actuator'
+2025-11-14 18:28:01 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Starting ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:28:01 [WARN][org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext][refresh][591]-> Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'; nested exception is org.springframework.boot.web.server.PortInUseException: Port 5050 is already in use
+2025-11-14 18:28:01 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Pausing ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:28:01 [INFO][org.apache.catalina.core.StandardService][log][173]-> Stopping service [Tomcat]
+2025-11-14 18:28:01 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Stopping ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:28:01 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Destroying ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:28:01 [ERROR][org.springframework.boot.diagnostics.LoggingFailureAnalysisReporter][report][40]-> 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 5050 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 5050 or configure this application to listen on another port.
+
+2025-11-14 18:34:21 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-11-14 18:34:21 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][525]-> Initializing Servlet 'dispatcherServlet'
+2025-11-14 18:34:21 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][547]-> Completed initialization in 1 ms
+2025-11-14 18:34:21 [WARN][org.apache.catalina.connector.Request][log][173]-> Creating the temporary upload location [D:\JavaProject\wechat\easychat\temp] as it is required by the servlet [dispatcherServlet]
+2025-11-14 18:34:47 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://localhost:5050/api/account/login,错误信息:
+com.easychat.exception.BusinessException: 账号或者密码错误
+2025-11-14 18:34:56 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://localhost:5050/api/account/login,错误信息:
+com.easychat.exception.BusinessException: 图片验证码不正确
+2025-11-14 18:34:59 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://localhost:5050/api/account/login,错误信息:
+com.easychat.exception.BusinessException: 账号或者密码错误
+2025-11-14 18:35:06 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://localhost:5050/api/account/login,错误信息:
+com.easychat.exception.BusinessException: 账号或者密码错误
+2025-11-14 18:35:26 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://localhost:5050/api/account/login,错误信息:
+com.easychat.exception.BusinessException: 账号或者密码错误
+2025-11-14 18:35:36 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://localhost:5050/api/account/login,错误信息:
+com.easychat.exception.BusinessException: 账号或者密码错误
+2025-11-14 18:35:46 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://localhost:5050/api/account/login,错误信息:
+com.easychat.exception.BusinessException: 账号或者密码错误
+2025-11-14 18:36:29 [INFO][com.easychat.websocket.MessageHandler][lambda$lisMessage$0][33]-> 收到广播消息:{"contactId":"robot_001","contactType":0,"lastMessage":"AI小助手自动添加","messageContent":"AI小助手自动添加","messageId":1,"messageType":1,"sendTime":1763116589131,"sendUserId":"U75241734433","sendUserNickName":"sz","sessionId":"9291dd77c2567d616722f490a8f8ad61","status":1}
+2025-11-14 18:36:29 [INFO][com.easychat.websocket.MessageHandler][lambda$lisMessage$0][33]-> 收到广播消息:{"contactId":"U75241734433","contactType":0,"extendData":{"createTime":1763115949000,"email":"robot@easychat.com","joinType":0,"lastLoginTime":1763115949000,"lastOffTime":1763115949236,"nickName":"AI小助手","onlineType":0,"password":"e10adc3949ba59abbe56e057f20f883e","personalSignature":"我是AI小助手，随时为您服务！","sex":1,"status":1,"userId":"robot_001"},"lastMessage":"AI小助手自动添加","messageContent":"AI小助手自动添加","messageId":1,"messageType":13,"sendTime":1763116589131,"sendUserId":"U75241734433","sendUserNickName":"sz","sessionId":"9291dd77c2567d616722f490a8f8ad61","status":1}
+2025-11-14 18:36:29 [INFO][com.easychat.websocket.netty.HandlerWebSocket][channelActive][51]-> 有新的连接加入。。。
+2025-11-14 18:36:29 [ERROR][com.easychat.websocket.ChannelContextUtils][addContext][149]-> 初始化链接失败
+java.lang.NullPointerException: null
+	at com.easychat.entity.po.ChatSessionUser.getContactType(ChatSessionUser.java:51)
+	at com.alibaba.fastjson.serializer.ASMSerializer_4_ChatSessionUser.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.ASMSerializer_3_WsInitData.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.JSONSerializer.writeWithFieldName(JSONSerializer.java:333)
+	at com.alibaba.fastjson.serializer.ASMSerializer_1_MessageSendDto.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.JSONSerializer.write(JSONSerializer.java:285)
+	at com.alibaba.fastjson.JSON.toJSONString(JSON.java:663)
+	at com.alibaba.fastjson.JSON.toJSONString(JSON.java:652)
+	at com.easychat.utils.JsonUtils.convertObj2Json(JsonUtils.java:21)
+	at com.easychat.websocket.ChannelContextUtils.sendMsg(ChannelContextUtils.java:259)
+	at com.easychat.websocket.ChannelContextUtils.addContext(ChannelContextUtils.java:147)
+	at com.easychat.websocket.netty.HandlerWebSocket.userEventTriggered(HandlerWebSocket.java:102)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:346)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:332)
+	at io.netty.channel.AbstractChannelHandlerContext.fireUserEventTriggered(AbstractChannelHandlerContext.java:324)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler$1.operationComplete(WebSocketServerProtocolHandshakeHandler.java:103)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler$1.operationComplete(WebSocketServerProtocolHandshakeHandler.java:92)
+	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:577)
+	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:551)
+	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:490)
+	at io.netty.util.concurrent.DefaultPromise.addListener(DefaultPromise.java:183)
+	at io.netty.channel.DefaultChannelPromise.addListener(DefaultChannelPromise.java:95)
+	at io.netty.channel.DefaultChannelPromise.addListener(DefaultChannelPromise.java:30)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler.channelRead(WebSocketServerProtocolHandshakeHandler.java:92)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.handler.timeout.IdleStateHandler.channelRead(IdleStateHandler.java:286)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.handler.codec.MessageToMessageDecoder.channelRead(MessageToMessageDecoder.java:103)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.channel.CombinedChannelDuplexHandler$DelegatingChannelHandlerContext.fireChannelRead(CombinedChannelDuplexHandler.java:436)
+	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:324)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:296)
+	at io.netty.channel.CombinedChannelDuplexHandler.channelRead(CombinedChannelDuplexHandler.java:251)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1410)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:919)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:163)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:714)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:650)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:576)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:493)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:989)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.lang.Thread.run(Thread.java:750)
+2025-11-14 18:36:29 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://127.0.0.1:5050/api/chat/downloadFile,错误信息:
+com.easychat.exception.BusinessException: 文件不存在
+2025-11-14 18:36:31 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://127.0.0.1:5050/api/chat/downloadFile,错误信息:
+com.easychat.exception.BusinessException: 文件不存在
+2025-11-14 18:37:06 [WARN][io.netty.channel.DefaultChannelPipeline][onUnhandledInboundException][1152]-> An exceptionCaught() event was fired, and it reached at the tail of the pipeline. It usually means the last handler in the pipeline did not handle the exception.
+java.io.IOException: 远程主机强迫关闭了一个现有的连接。
+	at sun.nio.ch.SocketDispatcher.read0(Native Method)
+	at sun.nio.ch.SocketDispatcher.read(SocketDispatcher.java:43)
+	at sun.nio.ch.IOUtil.readIntoNativeBuffer(IOUtil.java:223)
+	at sun.nio.ch.IOUtil.read(IOUtil.java:192)
+	at sun.nio.ch.SocketChannelImpl.read(SocketChannelImpl.java:378)
+	at io.netty.buffer.PooledByteBuf.setBytes(PooledByteBuf.java:253)
+	at io.netty.buffer.AbstractByteBuf.writeBytes(AbstractByteBuf.java:1133)
+	at io.netty.channel.socket.nio.NioSocketChannel.doReadBytes(NioSocketChannel.java:350)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:148)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:714)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:650)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:576)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:493)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:989)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.lang.Thread.run(Thread.java:750)
+2025-11-14 18:37:06 [INFO][com.easychat.websocket.netty.HandlerWebSocket][channelInactive][62]-> 有连接已经断开。。。
+2025-11-14 18:42:23 [INFO][com.easychat.websocket.netty.HandlerWebSocket][channelActive][51]-> 有新的连接加入。。。
+2025-11-14 18:42:23 [ERROR][com.easychat.websocket.ChannelContextUtils][addContext][149]-> 初始化链接失败
+java.lang.NullPointerException: null
+	at com.easychat.entity.po.ChatSessionUser.getContactType(ChatSessionUser.java:51)
+	at com.alibaba.fastjson.serializer.ASMSerializer_4_ChatSessionUser.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.ASMSerializer_3_WsInitData.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.JSONSerializer.writeWithFieldName(JSONSerializer.java:333)
+	at com.alibaba.fastjson.serializer.ASMSerializer_1_MessageSendDto.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.JSONSerializer.write(JSONSerializer.java:285)
+	at com.alibaba.fastjson.JSON.toJSONString(JSON.java:663)
+	at com.alibaba.fastjson.JSON.toJSONString(JSON.java:652)
+	at com.easychat.utils.JsonUtils.convertObj2Json(JsonUtils.java:21)
+	at com.easychat.websocket.ChannelContextUtils.sendMsg(ChannelContextUtils.java:259)
+	at com.easychat.websocket.ChannelContextUtils.addContext(ChannelContextUtils.java:147)
+	at com.easychat.websocket.netty.HandlerWebSocket.userEventTriggered(HandlerWebSocket.java:102)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:346)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:332)
+	at io.netty.channel.AbstractChannelHandlerContext.fireUserEventTriggered(AbstractChannelHandlerContext.java:324)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler$1.operationComplete(WebSocketServerProtocolHandshakeHandler.java:103)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler$1.operationComplete(WebSocketServerProtocolHandshakeHandler.java:92)
+	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:577)
+	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:551)
+	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:490)
+	at io.netty.util.concurrent.DefaultPromise.addListener(DefaultPromise.java:183)
+	at io.netty.channel.DefaultChannelPromise.addListener(DefaultChannelPromise.java:95)
+	at io.netty.channel.DefaultChannelPromise.addListener(DefaultChannelPromise.java:30)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler.channelRead(WebSocketServerProtocolHandshakeHandler.java:92)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.handler.timeout.IdleStateHandler.channelRead(IdleStateHandler.java:286)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.handler.codec.MessageToMessageDecoder.channelRead(MessageToMessageDecoder.java:103)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.channel.CombinedChannelDuplexHandler$DelegatingChannelHandlerContext.fireChannelRead(CombinedChannelDuplexHandler.java:436)
+	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:324)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:296)
+	at io.netty.channel.CombinedChannelDuplexHandler.channelRead(CombinedChannelDuplexHandler.java:251)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1410)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:919)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:163)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:714)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:650)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:576)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:493)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:989)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.lang.Thread.run(Thread.java:750)
+2025-11-14 18:42:40 [WARN][io.netty.channel.DefaultChannelPipeline][onUnhandledInboundException][1152]-> An exceptionCaught() event was fired, and it reached at the tail of the pipeline. It usually means the last handler in the pipeline did not handle the exception.
+java.io.IOException: 远程主机强迫关闭了一个现有的连接。
+	at sun.nio.ch.SocketDispatcher.read0(Native Method)
+	at sun.nio.ch.SocketDispatcher.read(SocketDispatcher.java:43)
+	at sun.nio.ch.IOUtil.readIntoNativeBuffer(IOUtil.java:223)
+	at sun.nio.ch.IOUtil.read(IOUtil.java:192)
+	at sun.nio.ch.SocketChannelImpl.read(SocketChannelImpl.java:378)
+	at io.netty.buffer.PooledByteBuf.setBytes(PooledByteBuf.java:253)
+	at io.netty.buffer.AbstractByteBuf.writeBytes(AbstractByteBuf.java:1133)
+	at io.netty.channel.socket.nio.NioSocketChannel.doReadBytes(NioSocketChannel.java:350)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:148)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:714)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:650)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:576)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:493)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:989)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.lang.Thread.run(Thread.java:750)
+2025-11-14 18:42:40 [INFO][com.easychat.websocket.netty.HandlerWebSocket][channelInactive][62]-> 有连接已经断开。。。
+2025-11-14 18:48:12 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 18:48:12 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 17060 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 18:48:12 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 18:48:13 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][multipleStoresDetected][262]-> Multiple Spring Data modules found, entering strict repository configuration mode!
+2025-11-14 18:48:13 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][132]-> Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-11-14 18:48:13 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][201]-> Finished Spring Data repository scanning in 18 ms. Found 0 Redis repository interfaces.
+2025-11-14 18:48:13 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][initialize][108]-> Tomcat initialized with port(s): 5050 (http)
+2025-11-14 18:48:13 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Initializing ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:48:13 [INFO][org.apache.catalina.core.StandardService][log][173]-> Starting service [Tomcat]
+2025-11-14 18:48:13 [INFO][org.apache.catalina.core.StandardEngine][log][173]-> Starting Servlet engine: [Apache Tomcat/9.0.55]
+2025-11-14 18:48:13 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring embedded WebApplicationContext
+2025-11-14 18:48:13 [INFO][org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext][prepareWebApplicationContext][290]-> Root WebApplicationContext: initialization completed in 988 ms
+2025-11-14 18:48:14 [INFO][org.redisson.Version][logVersion][41]-> Redisson 3.12.3
+2025-11-14 18:48:14 [INFO][org.redisson.connection.pool.MasterPubSubConnectionPool][lambda$run$0][168]-> 1 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 18:48:14 [INFO][org.redisson.connection.pool.MasterConnectionPool][lambda$run$0][168]-> 24 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 18:48:14 [INFO][com.easychat.service.impl.AIServiceImpl][<init>][29]-> AI服务初始化完成，当前使用的AI模型类型: chatgpt
+2025-11-14 18:48:15 [INFO][org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver][<init>][58]-> Exposing 1 endpoint(s) beneath base path '/actuator'
+2025-11-14 18:48:15 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Starting ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:48:15 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][start][220]-> Tomcat started on port(s): 5050 (http) with context path '/api'
+2025-11-14 18:48:15 [INFO][com.easychat.EasyChatApplication][logStarted][61]-> Started EasyChatApplication in 2.743 seconds (JVM running for 3.007)
+2025-11-14 18:48:15 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][110]-> HikariCPDatasource - Starting...
+2025-11-14 18:48:15 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][123]-> HikariCPDatasource - Start completed.
+2025-11-14 18:48:15 [INFO][com.easychat.InitRun][initRobotUser][81]-> 机器人用户已存在，无需初始化
+2025-11-14 18:48:15 [ERROR][com.easychat.InitRun][run][47]-> 服务启动成功，可以开始愉快的开发了
+2025-11-14 18:48:15 [INFO][com.easychat.websocket.netty.NettyWebSocketStarter][run][88]-> Netty服务端启动成功,端口:5051
+2025-11-14 18:48:43 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-11-14 18:48:43 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][525]-> Initializing Servlet 'dispatcherServlet'
+2025-11-14 18:48:43 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][547]-> Completed initialization in 1 ms
+2025-11-14 18:49:34 [INFO][com.easychat.websocket.netty.HandlerWebSocket][channelActive][51]-> 有新的连接加入。。。
+2025-11-14 18:49:34 [ERROR][com.easychat.websocket.ChannelContextUtils][addContext][149]-> 初始化链接失败
+java.lang.NullPointerException: null
+	at com.easychat.entity.po.ChatSessionUser.getContactType(ChatSessionUser.java:51)
+	at com.alibaba.fastjson.serializer.ASMSerializer_3_ChatSessionUser.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.ASMSerializer_2_WsInitData.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.JSONSerializer.writeWithFieldName(JSONSerializer.java:333)
+	at com.alibaba.fastjson.serializer.ASMSerializer_1_MessageSendDto.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.JSONSerializer.write(JSONSerializer.java:285)
+	at com.alibaba.fastjson.JSON.toJSONString(JSON.java:663)
+	at com.alibaba.fastjson.JSON.toJSONString(JSON.java:652)
+	at com.easychat.utils.JsonUtils.convertObj2Json(JsonUtils.java:21)
+	at com.easychat.websocket.ChannelContextUtils.sendMsg(ChannelContextUtils.java:259)
+	at com.easychat.websocket.ChannelContextUtils.addContext(ChannelContextUtils.java:147)
+	at com.easychat.websocket.netty.HandlerWebSocket.userEventTriggered(HandlerWebSocket.java:102)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:346)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:332)
+	at io.netty.channel.AbstractChannelHandlerContext.fireUserEventTriggered(AbstractChannelHandlerContext.java:324)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler$1.operationComplete(WebSocketServerProtocolHandshakeHandler.java:103)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler$1.operationComplete(WebSocketServerProtocolHandshakeHandler.java:92)
+	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:577)
+	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:551)
+	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:490)
+	at io.netty.util.concurrent.DefaultPromise.addListener(DefaultPromise.java:183)
+	at io.netty.channel.DefaultChannelPromise.addListener(DefaultChannelPromise.java:95)
+	at io.netty.channel.DefaultChannelPromise.addListener(DefaultChannelPromise.java:30)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler.channelRead(WebSocketServerProtocolHandshakeHandler.java:92)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.handler.timeout.IdleStateHandler.channelRead(IdleStateHandler.java:286)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.handler.codec.MessageToMessageDecoder.channelRead(MessageToMessageDecoder.java:103)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.channel.CombinedChannelDuplexHandler$DelegatingChannelHandlerContext.fireChannelRead(CombinedChannelDuplexHandler.java:436)
+	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:324)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:296)
+	at io.netty.channel.CombinedChannelDuplexHandler.channelRead(CombinedChannelDuplexHandler.java:251)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1410)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:919)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:163)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:714)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:650)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:576)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:493)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:989)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.lang.Thread.run(Thread.java:750)
+2025-11-14 18:49:42 [WARN][io.netty.channel.DefaultChannelPipeline][onUnhandledInboundException][1152]-> An exceptionCaught() event was fired, and it reached at the tail of the pipeline. It usually means the last handler in the pipeline did not handle the exception.
+java.io.IOException: 远程主机强迫关闭了一个现有的连接。
+	at sun.nio.ch.SocketDispatcher.read0(Native Method)
+	at sun.nio.ch.SocketDispatcher.read(SocketDispatcher.java:43)
+	at sun.nio.ch.IOUtil.readIntoNativeBuffer(IOUtil.java:223)
+	at sun.nio.ch.IOUtil.read(IOUtil.java:192)
+	at sun.nio.ch.SocketChannelImpl.read(SocketChannelImpl.java:378)
+	at io.netty.buffer.PooledByteBuf.setBytes(PooledByteBuf.java:253)
+	at io.netty.buffer.AbstractByteBuf.writeBytes(AbstractByteBuf.java:1133)
+	at io.netty.channel.socket.nio.NioSocketChannel.doReadBytes(NioSocketChannel.java:350)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:148)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:714)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:650)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:576)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:493)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:989)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.lang.Thread.run(Thread.java:750)
+2025-11-14 18:49:42 [INFO][com.easychat.websocket.netty.HandlerWebSocket][channelInactive][62]-> 有连接已经断开。。。
+2025-11-14 18:56:04 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 18:56:04 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 6736 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 18:56:04 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 18:56:04 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][multipleStoresDetected][262]-> Multiple Spring Data modules found, entering strict repository configuration mode!
+2025-11-14 18:56:04 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][132]-> Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-11-14 18:56:04 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][201]-> Finished Spring Data repository scanning in 16 ms. Found 0 Redis repository interfaces.
+2025-11-14 18:56:05 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][initialize][108]-> Tomcat initialized with port(s): 5050 (http)
+2025-11-14 18:56:05 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Initializing ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:56:05 [INFO][org.apache.catalina.core.StandardService][log][173]-> Starting service [Tomcat]
+2025-11-14 18:56:05 [INFO][org.apache.catalina.core.StandardEngine][log][173]-> Starting Servlet engine: [Apache Tomcat/9.0.55]
+2025-11-14 18:56:05 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring embedded WebApplicationContext
+2025-11-14 18:56:05 [INFO][org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext][prepareWebApplicationContext][290]-> Root WebApplicationContext: initialization completed in 969 ms
+2025-11-14 18:56:05 [INFO][org.redisson.Version][logVersion][41]-> Redisson 3.12.3
+2025-11-14 18:56:05 [INFO][org.redisson.connection.pool.MasterPubSubConnectionPool][lambda$run$0][168]-> 1 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 18:56:05 [INFO][org.redisson.connection.pool.MasterConnectionPool][lambda$run$0][168]-> 24 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 18:56:06 [INFO][org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver][<init>][58]-> Exposing 1 endpoint(s) beneath base path '/actuator'
+2025-11-14 18:56:06 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Starting ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:56:06 [WARN][org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext][refresh][591]-> Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'; nested exception is org.springframework.boot.web.server.PortInUseException: Port 5050 is already in use
+2025-11-14 18:56:06 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Pausing ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:56:06 [INFO][org.apache.catalina.core.StandardService][log][173]-> Stopping service [Tomcat]
+2025-11-14 18:56:06 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Stopping ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:56:06 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Destroying ProtocolHandler ["http-nio-5050"]
+2025-11-14 18:56:06 [ERROR][org.springframework.boot.diagnostics.LoggingFailureAnalysisReporter][report][40]-> 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 5050 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 5050 or configure this application to listen on another port.
+
+2025-11-14 19:02:04 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 19:02:04 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 15668 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 19:02:04 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 19:02:05 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][multipleStoresDetected][262]-> Multiple Spring Data modules found, entering strict repository configuration mode!
+2025-11-14 19:02:05 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][132]-> Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-11-14 19:02:05 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][201]-> Finished Spring Data repository scanning in 43 ms. Found 0 Redis repository interfaces.
+2025-11-14 19:02:06 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][initialize][108]-> Tomcat initialized with port(s): 5050 (http)
+2025-11-14 19:02:06 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Initializing ProtocolHandler ["http-nio-5050"]
+2025-11-14 19:02:06 [INFO][org.apache.catalina.core.StandardService][log][173]-> Starting service [Tomcat]
+2025-11-14 19:02:06 [INFO][org.apache.catalina.core.StandardEngine][log][173]-> Starting Servlet engine: [Apache Tomcat/9.0.55]
+2025-11-14 19:02:06 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring embedded WebApplicationContext
+2025-11-14 19:02:06 [INFO][org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext][prepareWebApplicationContext][290]-> Root WebApplicationContext: initialization completed in 1908 ms
+2025-11-14 19:02:07 [INFO][org.redisson.Version][logVersion][41]-> Redisson 3.12.3
+2025-11-14 19:02:07 [INFO][org.redisson.connection.pool.MasterPubSubConnectionPool][lambda$run$0][168]-> 1 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 19:02:07 [INFO][org.redisson.connection.pool.MasterConnectionPool][lambda$run$0][168]-> 24 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 19:02:08 [INFO][org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver][<init>][58]-> Exposing 1 endpoint(s) beneath base path '/actuator'
+2025-11-14 19:02:08 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Starting ProtocolHandler ["http-nio-5050"]
+2025-11-14 19:02:08 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][start][220]-> Tomcat started on port(s): 5050 (http) with context path '/api'
+2025-11-14 19:02:08 [INFO][com.easychat.EasyChatApplication][logStarted][61]-> Started EasyChatApplication in 4.915 seconds (JVM running for 5.4)
+2025-11-14 19:02:09 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][110]-> HikariCPDatasource - Starting...
+2025-11-14 19:02:09 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][123]-> HikariCPDatasource - Start completed.
+2025-11-14 19:02:09 [ERROR][com.easychat.InitRun][run][40]-> 服务启动成功，可以开始愉快的开发了
+2025-11-14 19:02:09 [INFO][com.easychat.websocket.netty.NettyWebSocketStarter][run][88]-> Netty服务端启动成功,端口:5051
+2025-11-14 19:43:12 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 19:43:12 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 27436 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 19:43:12 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 19:43:12 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][multipleStoresDetected][262]-> Multiple Spring Data modules found, entering strict repository configuration mode!
+2025-11-14 19:43:12 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][132]-> Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-11-14 19:43:12 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][201]-> Finished Spring Data repository scanning in 19 ms. Found 0 Redis repository interfaces.
+2025-11-14 19:43:13 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][initialize][108]-> Tomcat initialized with port(s): 5050 (http)
+2025-11-14 19:43:13 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Initializing ProtocolHandler ["http-nio-5050"]
+2025-11-14 19:43:13 [INFO][org.apache.catalina.core.StandardService][log][173]-> Starting service [Tomcat]
+2025-11-14 19:43:13 [INFO][org.apache.catalina.core.StandardEngine][log][173]-> Starting Servlet engine: [Apache Tomcat/9.0.55]
+2025-11-14 19:43:13 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring embedded WebApplicationContext
+2025-11-14 19:43:13 [INFO][org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext][prepareWebApplicationContext][290]-> Root WebApplicationContext: initialization completed in 1750 ms
+2025-11-14 19:43:14 [INFO][org.redisson.Version][logVersion][41]-> Redisson 3.12.3
+2025-11-14 19:43:14 [INFO][org.redisson.connection.pool.MasterPubSubConnectionPool][lambda$run$0][168]-> 1 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 19:43:14 [INFO][org.redisson.connection.pool.MasterConnectionPool][lambda$run$0][168]-> 24 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 19:43:15 [INFO][org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver][<init>][58]-> Exposing 1 endpoint(s) beneath base path '/actuator'
+2025-11-14 19:43:15 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Starting ProtocolHandler ["http-nio-5050"]
+2025-11-14 19:43:15 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][start][220]-> Tomcat started on port(s): 5050 (http) with context path '/api'
+2025-11-14 19:43:15 [INFO][com.easychat.EasyChatApplication][logStarted][61]-> Started EasyChatApplication in 4.019 seconds (JVM running for 4.307)
+2025-11-14 19:43:15 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][110]-> HikariCPDatasource - Starting...
+2025-11-14 19:43:15 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][123]-> HikariCPDatasource - Start completed.
+2025-11-14 19:43:15 [ERROR][com.easychat.InitRun][run][40]-> 服务启动成功，可以开始愉快的开发了
+2025-11-14 19:43:16 [INFO][com.easychat.websocket.netty.NettyWebSocketStarter][run][88]-> Netty服务端启动成功,端口:5051
+2025-11-14 19:43:40 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-11-14 19:43:40 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][525]-> Initializing Servlet 'dispatcherServlet'
+2025-11-14 19:43:40 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][547]-> Completed initialization in 1 ms
+2025-11-14 19:51:13 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 19:51:13 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 6812 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 19:51:13 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 19:51:14 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][multipleStoresDetected][262]-> Multiple Spring Data modules found, entering strict repository configuration mode!
+2025-11-14 19:51:14 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][132]-> Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-11-14 19:51:14 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][201]-> Finished Spring Data repository scanning in 18 ms. Found 0 Redis repository interfaces.
+2025-11-14 19:51:14 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][initialize][108]-> Tomcat initialized with port(s): 5050 (http)
+2025-11-14 19:51:15 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Initializing ProtocolHandler ["http-nio-5050"]
+2025-11-14 19:51:15 [INFO][org.apache.catalina.core.StandardService][log][173]-> Starting service [Tomcat]
+2025-11-14 19:51:15 [INFO][org.apache.catalina.core.StandardEngine][log][173]-> Starting Servlet engine: [Apache Tomcat/9.0.55]
+2025-11-14 19:51:15 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring embedded WebApplicationContext
+2025-11-14 19:51:15 [INFO][org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext][prepareWebApplicationContext][290]-> Root WebApplicationContext: initialization completed in 1481 ms
+2025-11-14 19:51:15 [INFO][org.redisson.Version][logVersion][41]-> Redisson 3.12.3
+2025-11-14 19:51:15 [INFO][org.redisson.connection.pool.MasterPubSubConnectionPool][lambda$run$0][168]-> 1 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 19:51:15 [INFO][org.redisson.connection.pool.MasterConnectionPool][lambda$run$0][168]-> 24 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 19:51:16 [INFO][org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver][<init>][58]-> Exposing 1 endpoint(s) beneath base path '/actuator'
+2025-11-14 19:51:16 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Starting ProtocolHandler ["http-nio-5050"]
+2025-11-14 19:51:16 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][start][220]-> Tomcat started on port(s): 5050 (http) with context path '/api'
+2025-11-14 19:51:16 [INFO][com.easychat.EasyChatApplication][logStarted][61]-> Started EasyChatApplication in 3.609 seconds (JVM running for 3.875)
+2025-11-14 19:51:16 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][110]-> HikariCPDatasource - Starting...
+2025-11-14 19:51:17 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][123]-> HikariCPDatasource - Start completed.
+2025-11-14 19:51:17 [ERROR][com.easychat.InitRun][run][40]-> 服务启动成功，可以开始愉快的开发了
+2025-11-14 19:51:17 [INFO][com.easychat.websocket.netty.NettyWebSocketStarter][run][88]-> Netty服务端启动成功,端口:5051
+2025-11-14 19:54:09 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-11-14 19:54:09 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][525]-> Initializing Servlet 'dispatcherServlet'
+2025-11-14 19:54:09 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][547]-> Completed initialization in 1 ms
+2025-11-14 19:56:46 [ERROR][com.easychat.controller.AGlobalExceptionHandlerController][handleException][25]-> 请求错误，请求地址http://localhost:5050/api/chat/loadChatSessionList,错误信息:
+org.springframework.http.converter.HttpMessageNotWritableException: Could not write JSON: (was java.lang.NullPointerException); nested exception is com.fasterxml.jackson.databind.JsonMappingException: (was java.lang.NullPointerException) (through reference chain: com.easychat.entity.vo.ResponseVO["data"]->java.util.ArrayList[0]->com.easychat.entity.po.ChatSessionUser["contactType"])
+	at org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter.writeInternal(AbstractJackson2HttpMessageConverter.java:463)
+	at org.springframework.http.converter.AbstractGenericHttpMessageConverter.write(AbstractGenericHttpMessageConverter.java:104)
+	at org.springframework.web.servlet.mvc.method.annotation.AbstractMessageConverterMethodProcessor.writeWithMessageConverters(AbstractMessageConverterMethodProcessor.java:290)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestResponseBodyMethodProcessor.handleReturnValue(RequestResponseBodyMethodProcessor.java:183)
+	at org.springframework.web.method.support.HandlerMethodReturnValueHandlerComposite.handleReturnValue(HandlerMethodReturnValueHandlerComposite.java:78)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:135)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:895)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:808)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1067)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:963)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doPost(FrameworkServlet.java:909)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:681)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:227)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162)
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:53)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:189)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162)
+	at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:189)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162)
+	at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:189)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162)
+	at org.springframework.boot.actuate.metrics.web.servlet.WebMvcMetricsFilter.doFilterInternal(WebMvcMetricsFilter.java:96)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:189)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:189)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:197)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:540)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:135)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:895)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1722)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1191)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:659)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(Thread.java:750)
+Caused by: com.fasterxml.jackson.databind.JsonMappingException: (was java.lang.NullPointerException) (through reference chain: com.easychat.entity.vo.ResponseVO["data"]->java.util.ArrayList[0]->com.easychat.entity.po.ChatSessionUser["contactType"])
+	at com.fasterxml.jackson.databind.JsonMappingException.wrapWithPath(JsonMappingException.java:392)
+	at com.fasterxml.jackson.databind.JsonMappingException.wrapWithPath(JsonMappingException.java:351)
+	at com.fasterxml.jackson.databind.ser.std.StdSerializer.wrapAndThrow(StdSerializer.java:316)
+	at com.fasterxml.jackson.databind.ser.std.BeanSerializerBase.serializeFields(BeanSerializerBase.java:782)
+	at com.fasterxml.jackson.databind.ser.BeanSerializer.serialize(BeanSerializer.java:178)
+	at com.fasterxml.jackson.databind.ser.impl.IndexedListSerializer.serializeContents(IndexedListSerializer.java:119)
+	at com.fasterxml.jackson.databind.ser.impl.IndexedListSerializer.serialize(IndexedListSerializer.java:79)
+	at com.fasterxml.jackson.databind.ser.impl.IndexedListSerializer.serialize(IndexedListSerializer.java:18)
+	at com.fasterxml.jackson.databind.ser.BeanPropertyWriter.serializeAsField(BeanPropertyWriter.java:728)
+	at com.fasterxml.jackson.databind.ser.std.BeanSerializerBase.serializeFields(BeanSerializerBase.java:774)
+	at com.fasterxml.jackson.databind.ser.BeanSerializer.serialize(BeanSerializer.java:178)
+	at com.fasterxml.jackson.databind.ser.DefaultSerializerProvider._serialize(DefaultSerializerProvider.java:480)
+	at com.fasterxml.jackson.databind.ser.DefaultSerializerProvider.serializeValue(DefaultSerializerProvider.java:319)
+	at com.fasterxml.jackson.databind.ObjectWriter$Prefetch.serialize(ObjectWriter.java:1518)
+	at com.fasterxml.jackson.databind.ObjectWriter.writeValue(ObjectWriter.java:1007)
+	at org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter.writeInternal(AbstractJackson2HttpMessageConverter.java:454)
+	... 52 common frames omitted
+Caused by: java.lang.NullPointerException: null
+	at com.easychat.entity.po.ChatSessionUser.getContactType(ChatSessionUser.java:51)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at com.fasterxml.jackson.databind.ser.BeanPropertyWriter.serializeAsField(BeanPropertyWriter.java:689)
+	at com.fasterxml.jackson.databind.ser.std.BeanSerializerBase.serializeFields(BeanSerializerBase.java:774)
+	... 64 common frames omitted
+2025-11-14 19:57:33 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 25428 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 19:57:33 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 19:57:33 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 19:57:33 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][multipleStoresDetected][262]-> Multiple Spring Data modules found, entering strict repository configuration mode!
+2025-11-14 19:57:33 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][132]-> Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-11-14 19:57:33 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][201]-> Finished Spring Data repository scanning in 20 ms. Found 0 Redis repository interfaces.
+2025-11-14 19:57:34 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][initialize][108]-> Tomcat initialized with port(s): 5050 (http)
+2025-11-14 19:57:34 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Initializing ProtocolHandler ["http-nio-5050"]
+2025-11-14 19:57:34 [INFO][org.apache.catalina.core.StandardService][log][173]-> Starting service [Tomcat]
+2025-11-14 19:57:34 [INFO][org.apache.catalina.core.StandardEngine][log][173]-> Starting Servlet engine: [Apache Tomcat/9.0.55]
+2025-11-14 19:57:34 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring embedded WebApplicationContext
+2025-11-14 19:57:34 [INFO][org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext][prepareWebApplicationContext][290]-> Root WebApplicationContext: initialization completed in 1136 ms
+2025-11-14 19:57:34 [INFO][org.redisson.Version][logVersion][41]-> Redisson 3.12.3
+2025-11-14 19:57:34 [INFO][org.redisson.connection.pool.MasterPubSubConnectionPool][lambda$run$0][168]-> 1 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 19:57:34 [INFO][org.redisson.connection.pool.MasterConnectionPool][lambda$run$0][168]-> 24 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 19:57:35 [INFO][org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver][<init>][58]-> Exposing 1 endpoint(s) beneath base path '/actuator'
+2025-11-14 19:57:35 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Starting ProtocolHandler ["http-nio-5050"]
+2025-11-14 19:57:35 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][start][220]-> Tomcat started on port(s): 5050 (http) with context path '/api'
+2025-11-14 19:57:35 [INFO][com.easychat.EasyChatApplication][logStarted][61]-> Started EasyChatApplication in 2.843 seconds (JVM running for 3.455)
+2025-11-14 19:57:35 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][110]-> HikariCPDatasource - Starting...
+2025-11-14 19:57:35 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][123]-> HikariCPDatasource - Start completed.
+2025-11-14 19:57:35 [ERROR][com.easychat.InitRun][run][40]-> 服务启动成功，可以开始愉快的开发了
+2025-11-14 19:57:35 [INFO][com.easychat.websocket.netty.NettyWebSocketStarter][run][88]-> Netty服务端启动成功,端口:5051
+2025-11-14 19:57:36 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-11-14 19:57:36 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][525]-> Initializing Servlet 'dispatcherServlet'
+2025-11-14 19:57:36 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][547]-> Completed initialization in 1 ms
+2025-11-14 20:00:04 [INFO][com.zaxxer.hikari.HikariDataSource][close][350]-> HikariCPDatasource - Shutdown initiated...
+2025-11-14 20:00:04 [INFO][com.zaxxer.hikari.HikariDataSource][close][352]-> HikariCPDatasource - Shutdown completed.
+2025-11-14 20:11:35 [INFO][org.hibernate.validator.internal.util.Version][<clinit>][21]-> HV000001: Hibernate Validator 6.2.0.Final
+2025-11-14 20:11:35 [INFO][com.easychat.EasyChatApplication][logStarting][55]-> Starting EasyChatApplication using Java 1.8.0_351 on CHINAMI-HKI9A5N with PID 26156 (D:\JavaProject\wechat\easychat-java\target\classes started by Administrator in D:\JavaProject\wechat\easychat-java)
+2025-11-14 20:11:35 [INFO][com.easychat.EasyChatApplication][logStartupProfileInfo][635]-> No active profile set, falling back to default profiles: default
+2025-11-14 20:11:35 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][multipleStoresDetected][262]-> Multiple Spring Data modules found, entering strict repository configuration mode!
+2025-11-14 20:11:35 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][132]-> Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-11-14 20:11:35 [INFO][org.springframework.data.repository.config.RepositoryConfigurationDelegate][registerRepositoriesIn][201]-> Finished Spring Data repository scanning in 17 ms. Found 0 Redis repository interfaces.
+2025-11-14 20:11:35 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][initialize][108]-> Tomcat initialized with port(s): 5050 (http)
+2025-11-14 20:11:35 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Initializing ProtocolHandler ["http-nio-5050"]
+2025-11-14 20:11:35 [INFO][org.apache.catalina.core.StandardService][log][173]-> Starting service [Tomcat]
+2025-11-14 20:11:35 [INFO][org.apache.catalina.core.StandardEngine][log][173]-> Starting Servlet engine: [Apache Tomcat/9.0.55]
+2025-11-14 20:11:36 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring embedded WebApplicationContext
+2025-11-14 20:11:36 [INFO][org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext][prepareWebApplicationContext][290]-> Root WebApplicationContext: initialization completed in 946 ms
+2025-11-14 20:11:36 [INFO][org.redisson.Version][logVersion][41]-> Redisson 3.12.3
+2025-11-14 20:11:36 [INFO][org.redisson.connection.pool.MasterPubSubConnectionPool][lambda$run$0][168]-> 1 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 20:11:36 [INFO][org.redisson.connection.pool.MasterConnectionPool][lambda$run$0][168]-> 24 connections initialized for 127.0.0.1/127.0.0.1:6379
+2025-11-14 20:11:37 [INFO][org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver][<init>][58]-> Exposing 1 endpoint(s) beneath base path '/actuator'
+2025-11-14 20:11:37 [INFO][org.apache.coyote.http11.Http11NioProtocol][log][173]-> Starting ProtocolHandler ["http-nio-5050"]
+2025-11-14 20:11:37 [INFO][org.springframework.boot.web.embedded.tomcat.TomcatWebServer][start][220]-> Tomcat started on port(s): 5050 (http) with context path '/api'
+2025-11-14 20:11:37 [INFO][com.easychat.EasyChatApplication][logStarted][61]-> Started EasyChatApplication in 2.425 seconds (JVM running for 2.656)
+2025-11-14 20:11:37 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][110]-> HikariCPDatasource - Starting...
+2025-11-14 20:11:37 [INFO][com.zaxxer.hikari.HikariDataSource][getConnection][123]-> HikariCPDatasource - Start completed.
+2025-11-14 20:11:37 [ERROR][com.easychat.InitRun][run][40]-> 服务启动成功，可以开始愉快的开发了
+2025-11-14 20:11:37 [INFO][com.easychat.websocket.netty.NettyWebSocketStarter][run][88]-> Netty服务端启动成功,端口:5051
+2025-11-14 20:27:11 [INFO][org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/api]][log][173]-> Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-11-14 20:27:11 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][525]-> Initializing Servlet 'dispatcherServlet'
+2025-11-14 20:27:11 [INFO][org.springframework.web.servlet.DispatcherServlet][initServletBean][547]-> Completed initialization in 1 ms
+2025-11-14 20:27:41 [INFO][com.easychat.websocket.netty.HandlerWebSocket][channelActive][51]-> 有新的连接加入。。。
+2025-11-14 20:27:41 [ERROR][com.easychat.websocket.ChannelContextUtils][addContext][149]-> 初始化链接失败
+java.lang.NullPointerException: null
+	at com.easychat.entity.po.ChatSessionUser.getContactType(ChatSessionUser.java:51)
+	at com.alibaba.fastjson.serializer.ASMSerializer_3_ChatSessionUser.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.ASMSerializer_2_WsInitData.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.JSONSerializer.writeWithFieldName(JSONSerializer.java:333)
+	at com.alibaba.fastjson.serializer.ASMSerializer_1_MessageSendDto.write(Unknown Source)
+	at com.alibaba.fastjson.serializer.JSONSerializer.write(JSONSerializer.java:285)
+	at com.alibaba.fastjson.JSON.toJSONString(JSON.java:663)
+	at com.alibaba.fastjson.JSON.toJSONString(JSON.java:652)
+	at com.easychat.utils.JsonUtils.convertObj2Json(JsonUtils.java:21)
+	at com.easychat.websocket.ChannelContextUtils.sendMsg(ChannelContextUtils.java:259)
+	at com.easychat.websocket.ChannelContextUtils.addContext(ChannelContextUtils.java:147)
+	at com.easychat.websocket.netty.HandlerWebSocket.userEventTriggered(HandlerWebSocket.java:102)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:346)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeUserEventTriggered(AbstractChannelHandlerContext.java:332)
+	at io.netty.channel.AbstractChannelHandlerContext.fireUserEventTriggered(AbstractChannelHandlerContext.java:324)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler$1.operationComplete(WebSocketServerProtocolHandshakeHandler.java:103)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler$1.operationComplete(WebSocketServerProtocolHandshakeHandler.java:92)
+	at io.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:577)
+	at io.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:551)
+	at io.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:490)
+	at io.netty.util.concurrent.DefaultPromise.addListener(DefaultPromise.java:183)
+	at io.netty.channel.DefaultChannelPromise.addListener(DefaultChannelPromise.java:95)
+	at io.netty.channel.DefaultChannelPromise.addListener(DefaultChannelPromise.java:30)
+	at io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandshakeHandler.channelRead(WebSocketServerProtocolHandshakeHandler.java:92)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.handler.timeout.IdleStateHandler.channelRead(IdleStateHandler.java:286)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.handler.codec.MessageToMessageDecoder.channelRead(MessageToMessageDecoder.java:103)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.channel.CombinedChannelDuplexHandler$DelegatingChannelHandlerContext.fireChannelRead(CombinedChannelDuplexHandler.java:436)
+	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:324)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:296)
+	at io.netty.channel.CombinedChannelDuplexHandler.channelRead(CombinedChannelDuplexHandler.java:251)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:357)
+	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1410)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:365)
+	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:919)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:163)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:714)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:650)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:576)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:493)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:989)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.lang.Thread.run(Thread.java:750)
+2025-11-14 20:27:57 [WARN][io.netty.channel.DefaultChannelPipeline][onUnhandledInboundException][1152]-> An exceptionCaught() event was fired, and it reached at the tail of the pipeline. It usually means the last handler in the pipeline did not handle the exception.
+java.io.IOException: 远程主机强迫关闭了一个现有的连接。
+	at sun.nio.ch.SocketDispatcher.read0(Native Method)
+	at sun.nio.ch.SocketDispatcher.read(SocketDispatcher.java:43)
+	at sun.nio.ch.IOUtil.readIntoNativeBuffer(IOUtil.java:223)
+	at sun.nio.ch.IOUtil.read(IOUtil.java:192)
+	at sun.nio.ch.SocketChannelImpl.read(SocketChannelImpl.java:378)
+	at io.netty.buffer.PooledByteBuf.setBytes(PooledByteBuf.java:253)
+	at io.netty.buffer.AbstractByteBuf.writeBytes(AbstractByteBuf.java:1133)
+	at io.netty.channel.socket.nio.NioSocketChannel.doReadBytes(NioSocketChannel.java:350)
+	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:148)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:714)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:650)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:576)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:493)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:989)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.lang.Thread.run(Thread.java:750)
+2025-11-14 20:27:57 [INFO][com.easychat.websocket.netty.HandlerWebSocket][channelInactive][62]-> 有连接已经断开。。。
