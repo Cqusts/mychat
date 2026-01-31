@@ -40,7 +40,6 @@
         <captcha.verion>1.6.2</captcha.verion>
         <netty.version>4.1.50.Final</netty.version>
         <redisson.version>3.23.5</redisson.version>
-        <spring-ai.version>1.0.0-M6</spring-ai.version>
     </properties>
 
     <dependencies>
@@ -157,25 +156,7 @@
             <artifactId>redisson</artifactId>
             <version>${redisson.version}</version>
         </dependency>
-
-        <!--Spring AI OpenAI Starter（兼容所有OpenAI协议的大模型）-->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
-            <version>${spring-ai.version}</version>
-        </dependency>
     </dependencies>
-
-    <repositories>
-        <repository>
-            <id>spring-milestones</id>
-            <name>Spring Milestones</name>
-            <url>https://repo.spring.io/milestone</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
 
     <build>
         <plugins>
