@@ -23,6 +23,7 @@ import com.easychat.service.ChatMessageService;
 import com.easychat.utils.CopyTools;
 import com.easychat.utils.DateUtil;
 import com.easychat.utils.StringTools;
+import com.easychat.service.AiChatService;
 import com.easychat.websocket.MessageHandler;
 import jodd.util.ArraysUtil;
 import org.slf4j.Logger;
@@ -61,6 +62,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     @Resource
     private RedisComponet redisComponet;
+
+    @Resource
+    private AiChatService aiChatService;
 
     /**
      * 根据条件查询列表
@@ -228,8 +232,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             robot.setNickName(sysSettingDto.getRobotNickName());
             ChatMessage robotChatMessage = new ChatMessage();
             robotChatMessage.setContactId(sendUserId);
-            //这里可以对接Ai 根据输入的信息做出回答
-            robotChatMessage.setMessageContent("我只是一个机器人无法识别你的消息");
+            // 调用AI大模型生成回复
+            String aiReply = aiChatService.chat(sendUserId, chatMessage.getMessageContent());
+            robotChatMessage.setMessageContent(aiReply);
             robotChatMessage.setMessageType(MessageTypeEnum.CHAT.getType());
             saveMessage(robotChatMessage, robot);
         } else {
