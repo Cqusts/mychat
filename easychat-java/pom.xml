@@ -39,7 +39,7 @@
         <commons.io.version>2.5</commons.io.version>
         <captcha.verion>1.6.2</captcha.verion>
         <netty.version>4.1.50.Final</netty.version>
-        <redisson.version>3.12.3</redisson.version>
+        <redisson.version>3.23.5</redisson.version>
         <spring-ai.version>1.0.0-M6</spring-ai.version>
     </properties>
 
