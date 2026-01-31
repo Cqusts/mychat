@@ -3,11 +3,11 @@ package com.easychat.benchmark;
 import org.redisson.Redisson;
 import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
+import org.redisson.client.codec.StringCodec;
 import org.redisson.config.Config;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
-import java.io.Serializable;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.UUID;
@@ -40,19 +40,23 @@ public class TokenGenerator {
                 String userId = String.format("BENCH_%06d", i);
                 String token = md5(userId + UUID.randomUUID().toString());
 
-                // 构造 TokenUserInfoDto 的JSON，与服务端反序列化兼容
+                // 构造与 GenericJackson2JsonRedisSerializer 兼容的JSON
+                // Spring的json序列化器会写入@class字段用于反序列化时确定类型
                 String tokenJson = String.format(
-                    "{\"token\":\"%s\",\"userId\":\"%s\",\"nickName\":\"bench_%d\",\"admin\":false}",
+                    "{\"@class\":\"com.easychat.entity.dto.TokenUserInfoDto\","
+                    + "\"token\":\"%s\",\"userId\":\"%s\",\"nickName\":\"bench_%d\",\"admin\":false}",
                     token, userId, i
                 );
 
-                // 写入 token -> TokenUserInfoDto
-                RBucket<Object> tokenBucket = redisson.getBucket(REDIS_KEY_WS_TOKEN + token);
+                // 使用StringCodec直接写纯字符串，避免Redisson默认编码添加二进制前缀
+                RBucket<String> tokenBucket = redisson.getBucket(
+                    REDIS_KEY_WS_TOKEN + token, StringCodec.INSTANCE);
                 tokenBucket.set(tokenJson, Duration.ofSeconds(TOKEN_EXPIRE_SECONDS));
 
-                // 写入 userId -> token
-                RBucket<Object> userBucket = redisson.getBucket(REDIS_KEY_WS_TOKEN_USERID + userId);
-                userBucket.set(token, Duration.ofSeconds(TOKEN_EXPIRE_SECONDS));
+                // userId -> token, String值也需要带双引号(Jackson序列化String会加引号)
+                RBucket<String> userBucket = redisson.getBucket(
+                    REDIS_KEY_WS_TOKEN_USERID + userId, StringCodec.INSTANCE);
+                userBucket.set("\"" + token + "\"", Duration.ofSeconds(TOKEN_EXPIRE_SECONDS));
 
                 writer.write(token);
                 writer.newLine();
