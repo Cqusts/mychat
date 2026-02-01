@@ -54,7 +54,9 @@ public class TokenGenerator {
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(output))) {
             for (int i = 0; i < count; i++) {
-                String userId = String.format("BENCH_%06d", i);
+                // userId必须以"U"开头，服务端getByPrefix取首字符路由消息
+                // user_id字段varchar(12)，格式: U_BENCH_XXXXX (12位)
+                String userId = String.format("U_BENCH_%04d", i);
                 String token = md5(userId + UUID.randomUUID().toString());
 
                 // 1. 写入MySQL用户记录
