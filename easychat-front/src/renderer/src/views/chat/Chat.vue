@@ -132,8 +132,10 @@ import {useMessageCountStore} from '@/stores/MessageCountStore'
 const messageCountStore = useMessageCountStore()
 
 import {useContactStateStore} from '@/stores/ContactStateStore'
+import {useSysSettingStore} from '@/stores/SysSettingStore'
 
 const contactStateStore = useContactStateStore()
+const sysSettingStore = useSysSettingStore()
 
 //会话列表
 const chatSessionList = ref([])
@@ -215,6 +217,17 @@ const loadGroupMembers = async (groupId) => {
   })
   if (result) {
     groupMembers.value = result.data.userContactList
+    // 添加机器人到群成员列表，使其可以在群聊中被@提及
+    const sysSetting = sysSettingStore.getSetting()
+    if (sysSetting.robotUid && sysSetting.robotNickName) {
+      const robotExists = groupMembers.value.some(m => m.userId === sysSetting.robotUid)
+      if (!robotExists) {
+        groupMembers.value.push({
+          userId: sysSetting.robotUid,
+          contactName: sysSetting.robotNickName
+        })
+      }
+    }
   }
 }
 
