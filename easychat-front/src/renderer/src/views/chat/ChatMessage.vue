@@ -9,7 +9,7 @@
         </el-skeleton>
       </div>
       <template v-else>
-        <div class="content" v-html="data.messageContent" v-if="data.messageType != 5"></div>
+        <div class="content" v-html="processedContent" v-if="data.messageType != 5"></div>
         <div class="content" v-else>
           <template v-if="data.fileType == 0">
             <ChatMessageImage :data="data" @click="showDetail"></ChatMessageImage>
@@ -47,7 +47,7 @@
         </el-skeleton>
       </div>
       <template v-else>
-        <div class="content" v-html="data.messageContent" v-if="data.messageType != 5"></div>
+        <div class="content" v-html="processedContent" v-if="data.messageType != 5"></div>
         <div class="content" v-else>
           <template v-if="data.fileType == 0">
             <ChatMessageImage :data="data" @click="showDetail"></ChatMessageImage>
@@ -85,6 +85,13 @@ const props = defineProps({
   }
 })
 
+const processedContent = computed(() => {
+  let content = props.data.messageContent
+  if (!content || props.data.messageType == 5) return content
+  content = content.replace(/@([^\s<]+)/g, '<span class="at-mention">@$1</span>')
+  return content
+})
+
 const emit = defineEmits(['showMediaDetail'])
 const showDetail = () => {
   if (props.data.stauts == 0) {
@@ -117,6 +124,10 @@ const showDetail = () => {
   font-size: 14px;
   :deep(.emoji) {
     font-size: 20px;
+  }
+  :deep(.at-mention) {
+    color: #1989fa;
+    font-weight: 500;
   }
 }
 

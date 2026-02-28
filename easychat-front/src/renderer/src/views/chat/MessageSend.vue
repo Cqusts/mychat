@@ -40,6 +40,20 @@
         <div class="iconfont icon-folder"></div>
       </el-upload>
     </div>
+    <!--@提及弹出列表-->
+    <div class="mention-popup" v-show="showMentionPopup && filteredMembers.length > 0">
+      <div
+        class="mention-item"
+        v-for="(member, index) in filteredMembers"
+        :key="member.userId"
+        :class="{ active: index === mentionActiveIndex }"
+        @click="selectMention(member)"
+        @mouseenter="mentionActiveIndex = index"
+      >
+        <Avatar :width="25" :userId="member.userId"></Avatar>
+        <span class="mention-name">{{ member.contactName }}</span>
+      </div>
+    </div>
     <div class="input-area" @drop="dropHandler" @dragover="dragOverHandler">
       <el-input
         :rows="5"
@@ -50,7 +64,8 @@
         show-word-limit
         spellcheck="false"
         input-style="background:#f5f5f5;border:none;"
-        @keydown.enter="sendMessage"
+        @keydown="handleKeydown"
+        @input="handleInput"
         @paste="pasteFile"
       />
     </div>
@@ -83,7 +98,7 @@
 <script setup>
 import SearchAdd from '@/views/contact/SearchAdd.vue'
 import {getFileType} from '@/utils/Constants.js'
-import {getCurrentInstance, onMounted, onUnmounted, ref} from 'vue'
+import {computed, getCurrentInstance, nextTick, onMounted, onUnmounted, ref} from 'vue'
 import emojiList from '@/utils/Emoji.js'
 import {useUserInfoStore} from '@/stores/UserInfoStore'
 import {useSysSettingStore} from '@/stores/SysSettingStore'
@@ -97,11 +112,16 @@ const props = defineProps({
   currentChatSession: {
     type: Object,
     default: {}
+  },
+  groupMembers: {
+    type: Array,
+    default: () => []
   }
 })
 
 const cleanMessage = () => {
   msgContent.value = ''
+  showMentionPopup.value = false
 }
 defineExpose({
   cleanMessage
@@ -111,6 +131,97 @@ const activeEmoji = ref('笑脸')
 
 //发送消息
 const msgContent = ref('')
+
+//@提及相关
+const showMentionPopup = ref(false)
+const mentionStartPos = ref(-1)
+const mentionSearchText = ref('')
+const mentionActiveIndex = ref(0)
+
+const filteredMembers = computed(() => {
+  if (!props.groupMembers || props.groupMembers.length === 0) return []
+  const userId = userInfoStore.getInfo().userId
+  let members = props.groupMembers.filter(m => m.userId !== userId)
+  if (mentionSearchText.value) {
+    members = members.filter(m =>
+      m.contactName.toLowerCase().includes(mentionSearchText.value.toLowerCase())
+    )
+  }
+  return members.slice(0, 10)
+})
+
+const handleInput = () => {
+  if (props.currentChatSession.contactType != 1 || !props.groupMembers || props.groupMembers.length === 0) {
+    showMentionPopup.value = false
+    return
+  }
+  nextTick(() => {
+    const textarea = document.querySelector('.input-area textarea')
+    if (!textarea) return
+    const cursorPos = textarea.selectionStart
+    const text = msgContent.value
+    const textBeforeCursor = text.substring(0, cursorPos)
+    const lastAtPos = textBeforeCursor.lastIndexOf('@')
+    if (lastAtPos >= 0 && (lastAtPos === 0 || /[\s]/.test(textBeforeCursor[lastAtPos - 1]))) {
+      const textAfterAt = textBeforeCursor.substring(lastAtPos + 1)
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+        mentionStartPos.value = lastAtPos
+        mentionSearchText.value = textAfterAt
+        mentionActiveIndex.value = 0
+        showMentionPopup.value = true
+        return
+      }
+    }
+    showMentionPopup.value = false
+  })
+}
+
+const selectMention = (member) => {
+  if (!member) return
+  const text = msgContent.value
+  const before = text.substring(0, mentionStartPos.value)
+  const after = text.substring(mentionStartPos.value + 1 + mentionSearchText.value.length)
+  const mentionText = '@' + member.contactName + ' '
+  msgContent.value = before + mentionText + after
+  showMentionPopup.value = false
+  nextTick(() => {
+    const textarea = document.querySelector('.input-area textarea')
+    if (textarea) {
+      const newPos = mentionStartPos.value + mentionText.length
+      textarea.setSelectionRange(newPos, newPos)
+      textarea.focus()
+    }
+  })
+}
+
+const handleKeydown = (e) => {
+  //如果@提及弹窗可见，处理键盘导航
+  if (showMentionPopup.value && filteredMembers.value.length > 0) {
+    if (e.keyCode === 13) {
+      e.preventDefault()
+      selectMention(filteredMembers.value[mentionActiveIndex.value])
+      return
+    }
+    if (e.keyCode === 38) {
+      e.preventDefault()
+      mentionActiveIndex.value = Math.max(0, mentionActiveIndex.value - 1)
+      return
+    }
+    if (e.keyCode === 40) {
+      e.preventDefault()
+      mentionActiveIndex.value = Math.min(filteredMembers.value.length - 1, mentionActiveIndex.value + 1)
+      return
+    }
+    if (e.keyCode === 27) {
+      showMentionPopup.value = false
+      return
+    }
+  }
+  //enter发送消息（原有逻辑）
+  if (e.keyCode === 13) {
+    sendMessage(e)
+  }
+}
 
 const emit = defineEmits(['sendMessage4Local'])
 const sendMessage = async (e) => {
@@ -365,6 +476,38 @@ onUnmounted(() => {
 .send-panel {
   height: 200px;
   border-top: 1px solid #ddd;
+  position: relative;
+
+  .mention-popup {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 4px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+
+    .mention-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      cursor: pointer;
+
+      &.active {
+        background: #f5f7fa;
+      }
+
+      .mention-name {
+        margin-left: 8px;
+        font-size: 14px;
+        color: #333;
+      }
+    }
+  }
 
   .toolbar {
     height: 40px;
