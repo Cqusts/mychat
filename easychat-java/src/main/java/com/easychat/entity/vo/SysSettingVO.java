@@ -4,7 +4,7 @@ import java.io.Serializable;
 
 public class SysSettingVO implements Serializable {
     private Integer maxImageSize = 2;
-    private Integer maxVideoSize = 5;
+    private Integer maxVideoSize = 50;
     private Integer maxFileSize = 5;
 
     public Integer getMaxImageSize() {
