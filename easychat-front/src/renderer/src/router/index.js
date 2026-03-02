@@ -90,6 +90,10 @@ const router = createRouter({
           component: () => import('@/views/contact/UserDetail.vue'),
         }]
       }, {
+        path: "/moments",
+        name: "朋友圈",
+        component: () => import('@/views/moments/Moments.vue'),
+      }, {
         path: "/setting",
         name: "设置",
         redirect: "/setting/userInfo",

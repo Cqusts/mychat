@@ -76,6 +76,12 @@ const menuList = ref([
     position: 'top'
   },
   {
+    name: 'moments',
+    icon: 'icon-image',
+    path: '/moments',
+    position: 'top'
+  },
+  {
     name: 'mysetting',
     icon: 'icon-more2',
     path: '/setting',

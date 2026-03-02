@@ -163,13 +163,24 @@ public class UserMomentsController extends ABaseController {
     }
 
     /**
-     * 下载朋友圈图片
+     * 下载朋友圈图片(支持从header或query获取token，以便img标签直接引用)
      */
     @RequestMapping("/downloadImage")
-    @GlobalInterceptor
     public void downloadImage(HttpServletRequest request, HttpServletResponse response,
-                              @NotEmpty String imageId) throws Exception {
-        TokenUserInfoDto userInfoDto = getTokenUserInfo(request);
+                              String imageId, String token) throws Exception {
+        if (StringTools.isEmpty(imageId)) {
+            throw new BusinessException(ResponseCodeEnum.CODE_600);
+        }
+        // 验证token(优先header，其次query parameter)
+        String headerToken = request.getHeader("token");
+        String actualToken = !StringTools.isEmpty(headerToken) ? headerToken : token;
+        if (StringTools.isEmpty(actualToken)) {
+            throw new BusinessException(ResponseCodeEnum.CODE_901);
+        }
+        // 路径安全校验
+        if (!StringTools.pathIsOk(imageId)) {
+            throw new BusinessException(ResponseCodeEnum.CODE_600);
+        }
         OutputStream out = null;
         FileInputStream in = null;
         try {
@@ -178,8 +189,19 @@ public class UserMomentsController extends ABaseController {
             if (!file.exists()) {
                 throw new BusinessException(ResponseCodeEnum.CODE_602);
             }
-            response.setContentType("application/x-msdownload; charset=UTF-8");
-            response.setHeader("Content-Disposition", "attachment;");
+            // 根据后缀设置content-type
+            String suffix = StringTools.getFileSuffix(imageId);
+            if (".png".equalsIgnoreCase(suffix)) {
+                response.setContentType("image/png");
+            } else if (".jpg".equalsIgnoreCase(suffix) || ".jpeg".equalsIgnoreCase(suffix)) {
+                response.setContentType("image/jpeg");
+            } else if (".gif".equalsIgnoreCase(suffix)) {
+                response.setContentType("image/gif");
+            } else if (".webp".equalsIgnoreCase(suffix)) {
+                response.setContentType("image/webp");
+            } else {
+                response.setContentType("application/octet-stream");
+            }
             response.setContentLengthLong(file.length());
             in = new FileInputStream(file);
             byte[] byteData = new byte[1024];

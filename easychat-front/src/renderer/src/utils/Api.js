@@ -44,6 +44,15 @@ const api = {
     saveBeautAccount: "/admin/saveBeautAccount",//保存靓号
     delBeautAccount: "/admin/delBeautAccount",//删除靓号
     checkVersion: "/update/checkVersion",//更新检测
+    //朋友圈
+    momentsPublish: "/moments/publish",//发布朋友圈
+    momentsLoadFeed: "/moments/loadFeed",//加载朋友圈动态流
+    momentsLoadUserMoments: "/moments/loadUserMoments",//加载用户动态
+    momentsGetDetail: "/moments/getDetail",//获取动态详情
+    momentsDelete: "/moments/delete",//删除动态
+    momentsLike: "/moments/like",//点赞/取消点赞
+    momentsComment: "/moments/comment",//评论动态
+    momentsDownloadImage: "/moments/downloadImage",//下载朋友圈图片
 }
 
 export default api;
