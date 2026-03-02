@@ -226,6 +226,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         }
         MessageSendDto messageSend = CopyTools.copy(chatMessage, MessageSendDto.class);
         if (Constants.ROBOT_UID.equals(contactId)) {
+            // 私聊机器人，直接回复
             SysSettingDto sysSettingDto = redisComponet.getSysSetting();
             TokenUserInfoDto robot = new TokenUserInfoDto();
             robot.setUserId(sysSettingDto.getRobotUid());
@@ -239,6 +240,27 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             saveMessage(robotChatMessage, robot);
         } else {
             messageHandler.sendMessage(messageSend);
+            // 群聊中@机器人时，机器人回复到群组
+            if (UserContactTypeEnum.GROUP == contactTypeEnum && messageContent != null) {
+                SysSettingDto sysSettingDto = redisComponet.getSysSetting();
+                String robotNickName = sysSettingDto.getRobotNickName();
+                if (messageContent.contains("@" + robotNickName)) {
+                    String actualMessage = messageContent.replace("@" + robotNickName, "").trim();
+                    // 将HTML转义还原，方便AI理解
+                    actualMessage = actualMessage.replace("<br>", "\n").replace("&lt;", "<");
+                    if (!StringTools.isEmpty(actualMessage)) {
+                        TokenUserInfoDto robot = new TokenUserInfoDto();
+                        robot.setUserId(sysSettingDto.getRobotUid());
+                        robot.setNickName(sysSettingDto.getRobotNickName());
+                        ChatMessage robotChatMessage = new ChatMessage();
+                        robotChatMessage.setContactId(contactId);
+                        robotChatMessage.setMessageType(MessageTypeEnum.CHAT.getType());
+                        String aiReply = aiChatService.chat(sendUserId, actualMessage);
+                        robotChatMessage.setMessageContent(aiReply);
+                        saveMessage(robotChatMessage, robot);
+                    }
+                }
+            }
         }
         return messageSend;
     }

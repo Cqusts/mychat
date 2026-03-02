@@ -84,6 +84,7 @@
         <MessageSend
           ref="messageSendRef"
           :currentChatSession="currentChatSession"
+          :groupMembers="groupMembers"
           @sendMessage4Local="sendMessage4LocalHandler"
         >
         </MessageSend>
@@ -131,8 +132,10 @@ import {useMessageCountStore} from '@/stores/MessageCountStore'
 const messageCountStore = useMessageCountStore()
 
 import {useContactStateStore} from '@/stores/ContactStateStore'
+import {useSysSettingStore} from '@/stores/SysSettingStore'
 
 const contactStateStore = useContactStateStore()
+const sysSettingStore = useSysSettingStore()
 
 //会话列表
 const chatSessionList = ref([])
@@ -177,6 +180,9 @@ const messageSendRef = ref()
 //是否正在加载消息
 const loadingMessage = ref(false)
 
+//群成员列表（用于@功能）
+const groupMembers = ref([])
+
 const chatSessionClickHandler = (item) => {
   distanceBottom = 0
   currentChatSession.value = Object.assign({}, item)
@@ -190,10 +196,39 @@ const chatSessionClickHandler = (item) => {
   messageCountInfo.maxMessageId = null
   messageCountInfo.noData = false
   loadChatMessage()
+  //加载群成员列表（用于@功能）
+  if (item.contactType == 1) {
+    loadGroupMembers(item.contactId)
+  } else {
+    groupMembers.value = []
+  }
   //设置session
   setSessionSelect({contactId: item.contactId, sessionId: item.sessionId})
   //清空输入框中的消息
   messageSendRef.value.cleanMessage()
+}
+
+const loadGroupMembers = async (groupId) => {
+  let result = await proxy.Request({
+    url: proxy.Api.getGroupInfo4Chat,
+    params: { groupId },
+    showLoading: false,
+    showError: false
+  })
+  if (result) {
+    groupMembers.value = result.data.userContactList
+    // 添加机器人到群成员列表，使其可以在群聊中被@提及
+    const sysSetting = sysSettingStore.getSetting()
+    if (sysSetting.robotUid && sysSetting.robotNickName) {
+      const robotExists = groupMembers.value.some(m => m.userId === sysSetting.robotUid)
+      if (!robotExists) {
+        groupMembers.value.push({
+          userId: sysSetting.robotUid,
+          contactName: sysSetting.robotNickName
+        })
+      }
+    }
+  }
 }
 
 const setSessionSelect = ({contactId, sessionId}) => {

@@ -272,9 +272,9 @@ const openWindow = ({ windowId, title = "EasyChat", path, width = 960, height = 
             newWindow.loadFile(join(__dirname, `../renderer/index.html`), { hash: `${path}` });
         }
         //打开调试窗口
-        if (NODE_ENV === 'development') {
-            newWindow.webContents.openDevTools();
-        }
+        // if (NODE_ENV === 'development') {
+        //     newWindow.webContents.openDevTools();
+        // }
 
         newWindow.on('ready-to-show', () => {
             console.log("设置title", title);

@@ -4,8 +4,10 @@ import java.io.Serializable;
 
 public class SysSettingVO implements Serializable {
     private Integer maxImageSize = 2;
-    private Integer maxVideoSize = 5;
+    private Integer maxVideoSize = 50;
     private Integer maxFileSize = 5;
+    private String robotUid;
+    private String robotNickName;
 
     public Integer getMaxImageSize() {
         return maxImageSize;
@@ -29,5 +31,21 @@ public class SysSettingVO implements Serializable {
 
     public void setMaxFileSize(Integer maxFileSize) {
         this.maxFileSize = maxFileSize;
+    }
+
+    public String getRobotUid() {
+        return robotUid;
+    }
+
+    public void setRobotUid(String robotUid) {
+        this.robotUid = robotUid;
+    }
+
+    public String getRobotNickName() {
+        return robotNickName;
+    }
+
+    public void setRobotNickName(String robotNickName) {
+        this.robotNickName = robotNickName;
     }
 }
