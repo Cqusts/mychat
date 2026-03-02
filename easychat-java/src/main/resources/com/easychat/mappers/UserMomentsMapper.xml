@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.easychat.mappers.UserMomentsMapper">
+
+    <!--实体映射-->
+    <resultMap id="base_result_map" type="com.easychat.entity.po.UserMoments">
+        <!--动态ID-->
+        <id column="moments_id" property="momentsId"/>
+        <!--发布用户ID-->
+        <result column="user_id" property="userId"/>
+        <!--发布用户昵称-->
+        <result column="nick_name" property="nickName"/>
+        <!--文字内容-->
+        <result column="content" property="content"/>
+        <!--图片列表-->
+        <result column="images" property="images"/>
+        <!--动态类型-->
+        <result column="type" property="type"/>
+        <!--点赞数-->
+        <result column="like_count" property="likeCount"/>
+        <!--评论数-->
+        <result column="comment_count" property="commentCount"/>
+        <!--发布时间-->
+        <result column="create_time" property="createTime"/>
+        <!--状态-->
+        <result column="status" property="status"/>
+    </resultMap>
+
+
+    <!-- 通用查询结果列-->
+    <sql id="base_column_list">
+        moments_id
+        ,user_id,nick_name,content,images,
+		 type,like_count,comment_count,create_time,status
+    </sql>
+
+    <sql id="base_condition_filed">
+        <if test="query.momentsId != null">
+            and moments_id = #{query.momentsId}
+        </if>
+        <if test="query.userId != null and query.userId!=''">
+            and user_id = #{query.userId}
+        </if>
+        <if test="query.nickName != null and query.nickName!=''">
+            and nick_name = #{query.nickName}
+        </if>
+        <if test="query.content != null and query.content!=''">
+            and content = #{query.content}
+        </if>
+        <if test="query.type != null">
+            and type = #{query.type}
+        </if>
+        <if test="query.likeCount != null">
+            and like_count = #{query.likeCount}
+        </if>
+        <if test="query.commentCount != null">
+            and comment_count = #{query.commentCount}
+        </if>
+        <if test="query.createTime != null">
+            and create_time = #{query.createTime}
+        </if>
+        <if test="query.status != null">
+            and status = #{query.status}
+        </if>
+    </sql>
+    <!-- 通用条件列-->
+    <sql id="base_condition">
+        <where>
+            <include refid="base_condition_filed"/>
+        </where>
+    </sql>
+
+    <!-- 通用查询条件列-->
+    <sql id="query_condition">
+        <where>
+            <include refid="base_condition_filed"/>
+            <if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+                and user_id like concat('%', #{query.userIdFuzzy}, '%')
+            </if>
+            <if test="query.nickNameFuzzy!= null  and query.nickNameFuzzy!=''">
+                and nick_name like concat('%', #{query.nickNameFuzzy}, '%')
+            </if>
+            <if test="query.contentFuzzy!= null  and query.contentFuzzy!=''">
+                and content like concat('%', #{query.contentFuzzy}, '%')
+            </if>
+            <!--额外添加的查询条件-->
+            <if test="query.userIdList!=null and query.userIdList.size()>0">
+                and user_id in(<foreach collection="query.userIdList" separator="," item="item">#{item}</foreach>)
+            </if>
+        </where>
+    </sql>
+
+    <!-- 查询集合-->
+    <select id="selectList" resultMap="base_result_map">
+        SELECT
+        <include refid="base_column_list"/>
+        FROM user_moments
+        <include refid="query_condition"/>
+        <if test="query.orderBy!=null">
+            order by ${query.orderBy}
+        </if>
+        <if test="query.simplePage!=null">
+            limit #{query.simplePage.start},#{query.simplePage.end}
+        </if>
+    </select>
+
+    <!-- 查询数量-->
+    <select id="selectCount" resultType="java.lang.Integer">
+        SELECT count(1) FROM user_moments
+        <include refid="query_condition"/>
+    </select>
+
+    <!-- 插入 （匹配有值的字段）-->
+    <insert id="insert" parameterType="com.easychat.entity.po.UserMoments">
+        <selectKey keyProperty="bean.momentsId" resultType="Long" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        INSERT INTO user_moments
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="bean.userId != null">
+                user_id,
+            </if>
+            <if test="bean.nickName != null">
+                nick_name,
+            </if>
+            <if test="bean.content != null">
+                content,
+            </if>
+            <if test="bean.images != null">
+                images,
+            </if>
+            <if test="bean.type != null">
+                type,
+            </if>
+            <if test="bean.likeCount != null">
+                like_count,
+            </if>
+            <if test="bean.commentCount != null">
+                comment_count,
+            </if>
+            <if test="bean.createTime != null">
+                create_time,
+            </if>
+            <if test="bean.status != null">
+                status,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="bean.userId!=null">
+                #{bean.userId},
+            </if>
+            <if test="bean.nickName!=null">
+                #{bean.nickName},
+            </if>
+            <if test="bean.content!=null">
+                #{bean.content},
+            </if>
+            <if test="bean.images!=null">
+                #{bean.images},
+            </if>
+            <if test="bean.type!=null">
+                #{bean.type},
+            </if>
+            <if test="bean.likeCount!=null">
+                #{bean.likeCount},
+            </if>
+            <if test="bean.commentCount!=null">
+                #{bean.commentCount},
+            </if>
+            <if test="bean.createTime!=null">
+                #{bean.createTime},
+            </if>
+            <if test="bean.status!=null">
+                #{bean.status},
+            </if>
+        </trim>
+    </insert>
+
+    <!-- 插入或者更新 （匹配有值的字段）-->
+    <insert id="insertOrUpdate" parameterType="com.easychat.entity.po.UserMoments">
+        INSERT INTO user_moments
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="bean.momentsId != null">
+                moments_id,
+            </if>
+            <if test="bean.userId != null">
+                user_id,
+            </if>
+            <if test="bean.nickName != null">
+                nick_name,
+            </if>
+            <if test="bean.content != null">
+                content,
+            </if>
+            <if test="bean.images != null">
+                images,
+            </if>
+            <if test="bean.type != null">
+                type,
+            </if>
+            <if test="bean.likeCount != null">
+                like_count,
+            </if>
+            <if test="bean.commentCount != null">
+                comment_count,
+            </if>
+            <if test="bean.createTime != null">
+                create_time,
+            </if>
+            <if test="bean.status != null">
+                status,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="bean.momentsId!=null">
+                #{bean.momentsId},
+            </if>
+            <if test="bean.userId!=null">
+                #{bean.userId},
+            </if>
+            <if test="bean.nickName!=null">
+                #{bean.nickName},
+            </if>
+            <if test="bean.content!=null">
+                #{bean.content},
+            </if>
+            <if test="bean.images!=null">
+                #{bean.images},
+            </if>
+            <if test="bean.type!=null">
+                #{bean.type},
+            </if>
+            <if test="bean.likeCount!=null">
+                #{bean.likeCount},
+            </if>
+            <if test="bean.commentCount!=null">
+                #{bean.commentCount},
+            </if>
+            <if test="bean.createTime!=null">
+                #{bean.createTime},
+            </if>
+            <if test="bean.status!=null">
+                #{bean.status},
+            </if>
+        </trim>
+        on DUPLICATE key update
+        <trim prefix="" suffix="" suffixOverrides=",">
+            <if test="bean.userId!=null">
+                user_id = VALUES(user_id),
+            </if>
+            <if test="bean.nickName!=null">
+                nick_name = VALUES(nick_name),
+            </if>
+            <if test="bean.content!=null">
+                content = VALUES(content),
+            </if>
+            <if test="bean.images!=null">
+                images = VALUES(images),
+            </if>
+            <if test="bean.type!=null">
+                type = VALUES(type),
+            </if>
+            <if test="bean.likeCount!=null">
+                like_count = VALUES(like_count),
+            </if>
+            <if test="bean.commentCount!=null">
+                comment_count = VALUES(comment_count),
+            </if>
+            <if test="bean.createTime!=null">
+                create_time = VALUES(create_time),
+            </if>
+            <if test="bean.status!=null">
+                status = VALUES(status),
+            </if>
+        </trim>
+    </insert>
+
+    <!-- 添加 （批量插入）-->
+    <insert id="insertBatch" parameterType="com.easychat.entity.po.UserMoments" useGeneratedKeys="true"
+            keyProperty="momentsId">
+        INSERT INTO user_moments(
+        user_id,
+        nick_name,
+        content,
+        images,
+        type,
+        like_count,
+        comment_count,
+        create_time,
+        status
+        )values
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.userId},
+            #{item.nickName},
+            #{item.content},
+            #{item.images},
+            #{item.type},
+            #{item.likeCount},
+            #{item.commentCount},
+            #{item.createTime},
+            #{item.status}
+            )
+        </foreach>
+    </insert>
+
+    <!-- 批量新增修改 （批量插入）-->
+    <insert id="insertOrUpdateBatch" parameterType="com.easychat.entity.po.UserMoments">
+        INSERT INTO user_moments(
+        user_id,
+        nick_name,
+        content,
+        images,
+        type,
+        like_count,
+        comment_count,
+        create_time,
+        status
+        )values
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.userId},
+            #{item.nickName},
+            #{item.content},
+            #{item.images},
+            #{item.type},
+            #{item.likeCount},
+            #{item.commentCount},
+            #{item.createTime},
+            #{item.status}
+            )
+        </foreach>
+        on DUPLICATE key update
+        user_id = VALUES(user_id),
+        nick_name = VALUES(nick_name),
+        content = VALUES(content),
+        images = VALUES(images),
+        type = VALUES(type),
+        like_count = VALUES(like_count),
+        comment_count = VALUES(comment_count),
+        create_time = VALUES(create_time),
+        status = VALUES(status)
+    </insert>
+
+    <!--多条件修改-->
+    <update id="updateByParam" parameterType="com.easychat.entity.query.UserMomentsQuery">
+        UPDATE user_moments
+        <set>
+            <if test="bean.userId != null">
+                user_id = #{bean.userId},
+            </if>
+            <if test="bean.nickName != null">
+                nick_name = #{bean.nickName},
+            </if>
+            <if test="bean.content != null">
+                content = #{bean.content},
+            </if>
+            <if test="bean.images != null">
+                images = #{bean.images},
+            </if>
+            <if test="bean.type != null">
+                type = #{bean.type},
+            </if>
+            <if test="bean.likeCount != null">
+                like_count = #{bean.likeCount},
+            </if>
+            <if test="bean.commentCount != null">
+                comment_count = #{bean.commentCount},
+            </if>
+            <if test="bean.createTime != null">
+                create_time = #{bean.createTime},
+            </if>
+            <if test="bean.status != null">
+                status = #{bean.status},
+            </if>
+        </set>
+        <include refid="query_condition"/>
+    </update>
+
+    <!--多条件删除-->
+    <delete id="deleteByParam">
+        delete from user_moments
+        <include refid="query_condition"/>
+    </delete>
+
+    <!-- 根据MomentsId修改-->
+    <update id="updateByMomentsId" parameterType="com.easychat.entity.po.UserMoments">
+        UPDATE user_moments
+        <set>
+            <if test="bean.userId != null">
+                user_id = #{bean.userId},
+            </if>
+            <if test="bean.nickName != null">
+                nick_name = #{bean.nickName},
+            </if>
+            <if test="bean.content != null">
+                content = #{bean.content},
+            </if>
+            <if test="bean.images != null">
+                images = #{bean.images},
+            </if>
+            <if test="bean.type != null">
+                type = #{bean.type},
+            </if>
+            <if test="bean.likeCount != null">
+                like_count = #{bean.likeCount},
+            </if>
+            <if test="bean.commentCount != null">
+                comment_count = #{bean.commentCount},
+            </if>
+            <if test="bean.createTime != null">
+                create_time = #{bean.createTime},
+            </if>
+            <if test="bean.status != null">
+                status = #{bean.status},
+            </if>
+        </set>
+        where moments_id=#{momentsId}
+    </update>
+
+    <!-- 根据MomentsId删除-->
+    <delete id="deleteByMomentsId">
+        delete
+        from user_moments
+        where moments_id = #{momentsId}
+    </delete>
+
+    <!-- 根据PrimaryKey获取对象-->
+    <select id="selectByMomentsId" resultMap="base_result_map">
+        select
+        <include refid="base_column_list"/>
+        from user_moments where moments_id=#{momentsId}
+    </select>
+
+    <!-- 增加点赞数-->
+    <update id="incrementLikeCount">
+        UPDATE user_moments SET like_count = like_count + #{count} where moments_id=#{momentsId}
+    </update>
+
+    <!-- 增加评论数-->
+    <update id="incrementCommentCount">
+        UPDATE user_moments SET comment_count = comment_count + #{count} where moments_id=#{momentsId}
+    </update>
+
+</mapper>
