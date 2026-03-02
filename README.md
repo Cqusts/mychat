@@ -1,4 +1,4 @@
-# EasyChat
+# MyChat
 
 一个仿微信的全栈即时通讯应用，基于 Spring Boot + Netty + Vue 3 + Electron 构建，支持单聊、群聊、AI 智能助手等功能。
 
