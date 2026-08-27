@@ -217,9 +217,77 @@ const loadChatMessage = () => {
   })
 }
 
+//AI流式回复：把同一个streamId的片段拼接到同一个临时气泡里
+const handleAiStream = (message) => {
+  const chunk = message.extendData
+  if (!chunk || !chunk.streamId) {
+    return
+  }
+  //不在当前会话就不渲染，流结束后那条正式消息会走常规链路更新未读数
+  if (message.sessionId !== currentChatSession.value.sessionId) {
+    return
+  }
+  let bubble = messageList.value.find((item) => item.streamId === chunk.streamId)
+  if (bubble == null) {
+    bubble = {
+      //临时气泡用负数占位，避免和真实messageId冲突
+      messageId: -Date.now(),
+      streamId: chunk.streamId,
+      sessionId: message.sessionId,
+      sendUserId: message.sendUserId,
+      sendUserNickName: message.sendUserNickName,
+      contactId: message.contactId,
+      contactType: message.contactType,
+      messageType: 2,
+      status: 1,
+      sendTime: message.sendTime,
+      messageContent: '',
+      //控制打字机光标
+      streaming: true,
+      //工具调用提示
+      toolHint: ''
+    }
+    messageList.value.push(bubble)
+  }
+  if (message.messageType == 16) {
+    //AI正在调用工具，提示展示在气泡里，等下一个正文片段到达时清掉
+    bubble.toolHint = chunk.content
+  } else if (message.messageType == 14) {
+    bubble.toolHint = ''
+    bubble.messageContent = bubble.messageContent + (chunk.content || '')
+  } else {
+    //15：流结束，用服务端下发的完整内容校准一次，避免片段异常导致前后不一致
+    bubble.toolHint = ''
+    if (chunk.content) {
+      bubble.messageContent = chunk.content
+    }
+    bubble.streaming = false
+  }
+  gotoBottom()
+}
+
+//AI回复落库后的正式消息到达，清掉同一会话同一发送人的临时流式气泡
+const removeStreamBubbles = (message) => {
+  for (let i = messageList.value.length - 1; i >= 0; i--) {
+    const item = messageList.value[i]
+    if (
+      item.streamId &&
+      item.sessionId === message.sessionId &&
+      item.sendUserId === message.sendUserId
+    ) {
+      messageList.value.splice(i, 1)
+    }
+  }
+}
+
 const onReciveMessage = () => {
   //监听聊天消息
   window.ipcRenderer.on('reciveMessage', (e, message) => {
+    //AI流式回复：14片段 15结束 16工具调用，高频消息，先处理掉不往下走
+    if (message.messageType == 14 || message.messageType == 15 || message.messageType == 16) {
+      handleAiStream(message)
+      return
+    }
     console.log('收到消息', message)
     if (message.messageType == 1) {
       contactStateStore.setContactReload(message.contactType == 0 ? 'USER' : 'GROUP')
@@ -292,6 +360,8 @@ const onReciveMessage = () => {
     } else {
       //选中了当前消息的会话更新会话信息，添加消息
       Object.assign(currentChatSession.value, message.extendData)
+      //AI回复落库后的正式消息，替换掉之前的临时流式气泡
+      removeStreamBubbles(message)
       messageList.value.push(message)
       gotoBottom()
     }

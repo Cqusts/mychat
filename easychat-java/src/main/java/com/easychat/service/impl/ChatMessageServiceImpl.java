@@ -24,10 +24,14 @@ import com.easychat.utils.CopyTools;
 import com.easychat.utils.DateUtil;
 import com.easychat.utils.StringTools;
 import com.easychat.service.AiChatService;
+import com.easychat.service.AiStreamCallback;
+import com.easychat.entity.dto.AiStreamChunkDto;
 import com.easychat.websocket.MessageHandler;
 import jodd.util.ArraysUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.task.TaskRejectedException;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -35,6 +39,8 @@ import jakarta.annotation.Resource;
 import java.io.File;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -45,6 +51,11 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatMessageServiceImpl.class);
 
+    /**
+     * AI线程池被打满时回给用户的兜底文案
+     */
+    private static final String ROBOT_BUSY_TIP = "助手当前有点忙，请稍后再问我一次～";
+
     @Resource
     private ChatMessageMapper<ChatMessage, ChatMessageQuery> chatMessageMapper;
 
@@ -53,6 +64,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     @Resource
     private MessageHandler messageHandler;
+
+    @Resource(name = "aiTaskExecutor")
+    private ThreadPoolTaskExecutor aiTaskExecutor;
 
     @Resource
     private AppConfig appConfig;
@@ -226,21 +240,110 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         }
         MessageSendDto messageSend = CopyTools.copy(chatMessage, MessageSendDto.class);
         if (Constants.ROBOT_UID.equals(contactId)) {
-            SysSettingDto sysSettingDto = redisComponet.getSysSetting();
-            TokenUserInfoDto robot = new TokenUserInfoDto();
-            robot.setUserId(sysSettingDto.getRobotUid());
-            robot.setNickName(sysSettingDto.getRobotNickName());
-            ChatMessage robotChatMessage = new ChatMessage();
-            robotChatMessage.setContactId(sendUserId);
-            // 调用AI大模型生成回复
-            String aiReply = aiChatService.chat(sendUserId, chatMessage.getMessageContent());
-            robotChatMessage.setMessageContent(aiReply);
-            robotChatMessage.setMessageType(MessageTypeEnum.CHAT.getType());
-            saveMessage(robotChatMessage, robot);
+            //用户消息已经落库，AI回复交给独立线程池异步生成：
+            //生成过程中的片段直接走WebSocket推送，HTTP请求线程立即返回，不再被大模型的秒级耗时拖住
+            dispatchRobotReply(sendUserId, chatMessage.getMessageContent(), sessionId);
         } else {
             messageHandler.sendMessage(messageSend);
         }
         return messageSend;
+    }
+
+    /**
+     * 投递一次AI回复任务到AI线程池
+     *
+     * @param userId      提问的用户
+     * @param userMessage 用户的提问内容
+     * @param sessionId   用户与机器人的会话ID
+     */
+    private void dispatchRobotReply(String userId, String userMessage, String sessionId) {
+        SysSettingDto sysSettingDto = redisComponet.getSysSetting();
+        TokenUserInfoDto robot = new TokenUserInfoDto();
+        robot.setUserId(sysSettingDto.getRobotUid());
+        robot.setNickName(sysSettingDto.getRobotNickName());
+        String streamId = UUID.randomUUID().toString().replace("-", "");
+        try {
+            aiTaskExecutor.execute(() -> streamRobotReply(robot, userId, userMessage, sessionId, streamId));
+        } catch (TaskRejectedException e) {
+            //线程和队列都满了，快速失败并给用户一个明确答复，而不是让请求一直挂着。
+            //注意这里必须捕获Spring的TaskRejectedException：
+            //ThreadPoolTaskExecutor会把JDK的RejectedExecutionException包装后再抛出
+            logger.warn("AI线程池已满，拒绝本次请求, userId:{}", userId);
+            saveRobotMessage(robot, userId, ROBOT_BUSY_TIP);
+        }
+    }
+
+    /**
+     * 在AI线程池中执行：流式取回复 -> 逐片段推送 -> 结束后落库
+     */
+    private void streamRobotReply(TokenUserInfoDto robot, String userId, String userMessage,
+                                  String sessionId, String streamId) {
+        AtomicInteger index = new AtomicInteger(0);
+        aiChatService.chatStream(userId, userMessage, new AiStreamCallback() {
+            @Override
+            public void onChunk(String delta) {
+                pushAiStream(robot, userId, sessionId, MessageTypeEnum.AI_STREAM, streamId,
+                        StringTools.resetMessageContent(delta), index.getAndIncrement());
+            }
+
+            @Override
+            public void onToolCall(String toolHint) {
+                pushAiStream(robot, userId, sessionId, MessageTypeEnum.AI_TOOL_CALL, streamId,
+                        toolHint, index.getAndIncrement());
+            }
+
+            @Override
+            public void onComplete(String fullContent) {
+                //先告知前端流已结束，再落库；
+                //落库后的正式消息会顺着原有链路推给前端，用来替换掉临时的流式气泡
+                pushAiStream(robot, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                        StringTools.resetMessageContent(fullContent), index.getAndIncrement());
+                saveRobotMessage(robot, userId, fullContent);
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                pushAiStream(robot, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                        StringTools.resetMessageContent(errorMessage), index.getAndIncrement());
+                saveRobotMessage(robot, userId, errorMessage);
+            }
+        });
+    }
+
+    /**
+     * 推送一个流式片段。这类消息只走WebSocket，不落库、不更新会话，
+     * 真正的消息记录以结束后落库的那条CHAT消息为准。
+     */
+    private void pushAiStream(TokenUserInfoDto robot, String userId, String sessionId,
+                              MessageTypeEnum messageType, String streamId, String content, Integer index) {
+        MessageSendDto<AiStreamChunkDto> chunk = new MessageSendDto<>();
+        chunk.setMessageType(messageType.getType());
+        //contactId决定这条消息推送给谁
+        chunk.setContactId(userId);
+        chunk.setContactType(UserContactTypeEnum.USER.getType());
+        chunk.setSendUserId(robot.getUserId());
+        chunk.setSendUserNickName(robot.getNickName());
+        chunk.setSessionId(sessionId);
+        chunk.setSendTime(System.currentTimeMillis());
+        chunk.setStatus(MessageStatusEnum.SENDED.getStatus());
+        chunk.setExtendData(new AiStreamChunkDto(streamId, content, index));
+        messageHandler.sendMessage(chunk);
+    }
+
+    /**
+     * 机器人回复落库，复用原有saveMessage链路（更新会话、推送正式消息）。
+     * 运行在AI线程池中，异常不能往外抛，否则会打挂线程池里的任务。
+     */
+    private void saveRobotMessage(TokenUserInfoDto robot, String userId, String content) {
+        try {
+            ChatMessage robotChatMessage = new ChatMessage();
+            robotChatMessage.setContactId(userId);
+            robotChatMessage.setMessageContent(content);
+            robotChatMessage.setMessageType(MessageTypeEnum.CHAT.getType());
+            saveMessage(robotChatMessage, robot);
+        } catch (Exception e) {
+            logger.error("机器人回复落库失败, userId:{}", userId, e);
+        }
     }
 
     @Override

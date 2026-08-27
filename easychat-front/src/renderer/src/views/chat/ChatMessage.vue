@@ -47,7 +47,13 @@
         </el-skeleton>
       </div>
       <template v-else>
-        <div class="content" v-html="data.messageContent" v-if="data.messageType != 5"></div>
+        <div class="content" v-if="data.messageType != 5">
+          <div class="ai-tool-hint" v-if="data.toolHint">
+            <span class="dot"></span>{{ data.toolHint }}
+          </div>
+          <span v-html="data.messageContent"></span>
+          <span class="stream-cursor" v-if="data.streaming"></span>
+        </div>
         <div class="content" v-else>
           <template v-if="data.fileType == 0">
             <ChatMessageImage :data="data" @click="showDetail"></ChatMessageImage>
@@ -117,6 +123,54 @@ const showDetail = () => {
   font-size: 14px;
   :deep(.emoji) {
     font-size: 20px;
+  }
+}
+
+//AI正在调用工具时的提示
+.ai-tool-hint {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  color: #8a8a8a;
+  font-size: 12px;
+  .dot {
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: #07c160;
+    animation: ai-dot-pulse 1s ease-in-out infinite;
+  }
+}
+
+//AI流式输出时的打字机光标
+.stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: #07c160;
+  animation: ai-cursor-blink 1s step-end infinite;
+}
+
+@keyframes ai-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes ai-cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
   }
 }
 

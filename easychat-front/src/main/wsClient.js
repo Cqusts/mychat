@@ -46,15 +46,21 @@ const createWs = () => {
 
     // 从服务器接受到信息时的回调函数
     ws.onmessage = async function (e) {
+        const message = JSON.parse(e.data);
+        const messageType = message.messageType;
+        //AI流式消息是高频的（每几十毫秒一条），不闪任务栏、不打日志、也不写本地数据库，
+        //直接透传给渲染进程做拼接；真正入库的是流结束后服务端下发的那条普通聊天消息
+        if (messageType == 14 || messageType == 15 || messageType == 16) {
+            sender.send("reciveMessage", message);
+            return;
+        }
         let mainWindow = getWindow("main");
         //信息消息闪烁
         if (!mainWindow.isFocused()) {
             mainWindow.flashFrame(true);
         }
         console.log('收到服务器消息', e.data)
-        const message = JSON.parse(e.data);
         const leaveGroupUserId = message.extendData;
-        const messageType = message.messageType;
         switch (messageType) {
             case 0://ws链接成功
                 //保存会话信息
