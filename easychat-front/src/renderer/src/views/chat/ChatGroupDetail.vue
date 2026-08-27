@@ -7,11 +7,16 @@
             <Avatar :userId="item.userId" :width="30" @closeDrawer="closeDrawerHandler"></Avatar>
             <div class="nick-name" :title="item.contactName">{{ item.contactName }}</div>
             <div class="owner-tag" v-if="item.userId == groupInfo.groupOwnerId">群主</div>
+            <div class="agent-tag" v-else-if="agentIds.includes(item.userId)">AI</div>
           </div>
           <template v-if="userInfoStore.getInfo().userId == groupInfo.groupOwnerId">
             <div class="member-item" @click="addUser">
               <div class="iconfont icon-add icon-op"></div>
               <div class="nick-name">添加</div>
+            </div>
+            <div class="member-item" @click="addAgent" title="把AI助手拉进群，之后@它的昵称就能让它发言">
+              <div class="iconfont icon-add icon-op agent-op"></div>
+              <div class="nick-name">助手</div>
             </div>
             <div class="member-item" @click="removeUser">
               <div class="iconfont icon-min icon-op"></div>
@@ -81,6 +86,25 @@ const show = async (groupId) => {
   showDrawer.value = true
   memberList.value = result.data.userContactList
   groupInfo.value = result.data.groupInfo
+  await loadAgents(groupId)
+}
+
+//群成员里哪些是AI助手，用来打标签，顺便给"添加助手"复用
+const agentIds = ref([])
+const agentList = ref([])
+const loadAgents = async (groupId) => {
+  let result = await proxy.Request({
+    url: proxy.Api.loadAiAgents,
+    params: { groupId },
+    showError: false
+  })
+  if (!result) {
+    agentList.value = []
+    agentIds.value = []
+    return
+  }
+  agentList.value = result.data
+  agentIds.value = result.data.map((item) => item.contactId)
 }
 
 const closeDrawerHandler = () => {
@@ -168,6 +192,24 @@ const removeUser = () => {
   contactList.splice(0, 1)
   userSelectRef.value.show({ contactList, groupId: groupInfo.value.groupId, opType: 0 })
 }
+//拉AI助手进群。
+//助手在系统里就是普通用户，所以选完之后走的是和加真人完全一样的接口
+const addAgent = () => {
+  if (agentList.value.length == 0) {
+    proxy.Message.warning('后台还没有配置任何AI助手')
+    return
+  }
+  const memberIds = memberList.value.map((item) => item['userId'])
+  const contactList = agentList.value.map((item) => {
+    return { ...item, disabled: memberIds.includes(item.contactId) }
+  })
+  userSelectRef.value.show({
+    contactList,
+    groupId: groupInfo.value.groupId,
+    opType: 1
+  })
+}
+
 //添加删除用户回调
 const addOrRemoveUserCallback = () => {
   showDrawer.value = false
@@ -212,6 +254,16 @@ const addOrRemoveUserCallback = () => {
           color: #fff;
           border-radius: 3px;
         }
+        .agent-tag {
+          position: absolute;
+          left: 0px;
+          top: 0px;
+          padding: 0 3px;
+          font-size: 12px;
+          background: #576b95;
+          color: #fff;
+          border-radius: 3px;
+        }
         .nick-name {
           margin-top: 3px;
           width: 100%;
@@ -222,6 +274,10 @@ const addOrRemoveUserCallback = () => {
           text-align: center;
         }
 
+        .agent-op {
+          border-color: #576b95 !important;
+          color: #576b95 !important;
+        }
         .icon-op {
           cursor: pointer;
           width: 30px;

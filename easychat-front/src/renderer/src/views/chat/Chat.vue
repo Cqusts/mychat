@@ -262,6 +262,14 @@ const handleAiStream = (message) => {
       bubble.messageContent = chunk.content
     }
     bubble.streaming = false
+    //一个字都没吐出来就结束了（群里助手回复失败时会这样），
+    //这种情况不会有正式消息来替换它，得自己把空气泡收掉
+    if (!bubble.messageContent) {
+      const emptyIndex = messageList.value.indexOf(bubble)
+      if (emptyIndex >= 0) {
+        messageList.value.splice(emptyIndex, 1)
+      }
+    }
   }
   gotoBottom()
 }

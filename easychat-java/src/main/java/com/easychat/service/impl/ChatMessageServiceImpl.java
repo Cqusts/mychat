@@ -23,6 +23,8 @@ import com.easychat.service.ChatMessageService;
 import com.easychat.utils.CopyTools;
 import com.easychat.utils.DateUtil;
 import com.easychat.utils.StringTools;
+import com.easychat.ai.AiAgentDefinition;
+import com.easychat.ai.AiAgentRegistry;
 import com.easychat.service.AiChatService;
 import com.easychat.service.AiStreamCallback;
 import com.easychat.entity.dto.AiStreamChunkDto;
@@ -30,6 +32,7 @@ import com.easychat.websocket.MessageHandler;
 import jodd.util.ArraysUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
@@ -37,6 +40,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.annotation.Resource;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -79,6 +84,22 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     @Resource
     private AiChatService aiChatService;
+
+    @Resource
+    private AiAgentRegistry aiAgentRegistry;
+
+    /**
+     * 群里助手之间互相接话的最大轮数。
+     * 助手可以@别的助手，所以必须有硬上限，否则两个助手能一直聊下去把额度烧光。
+     */
+    @Value("${ai.chat.group.max-depth:3}")
+    private Integer maxAgentDepth;
+
+    /**
+     * 拼给助手看的群聊上下文条数
+     */
+    @Value("${ai.chat.group.context-size:15}")
+    private Integer groupContextSize;
 
     /**
      * 根据条件查询列表
@@ -186,8 +207,17 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     @Override
     public MessageSendDto saveMessage(ChatMessage chatMessage, TokenUserInfoDto tokenUserInfoDto) {
-        //不是机器人回复，判断好友状态
-        if (!Constants.ROBOT_UID.equals(tokenUserInfoDto.getUserId())) {
+        //外部调用一律从第0轮开始
+        return saveMessage(chatMessage, tokenUserInfoDto, 0);
+    }
+
+    /**
+     * @param agentDepth 当前是助手接话的第几轮。真人发言为0，助手的回复递增，
+     *                   用来给助手之间的互相接话封顶
+     */
+    private MessageSendDto saveMessage(ChatMessage chatMessage, TokenUserInfoDto tokenUserInfoDto, int agentDepth) {
+        //AI助手不是真人，不需要先建立好友关系才能收发消息，跳过这一步校验
+        if (!aiAgentRegistry.isAgent(tokenUserInfoDto.getUserId())) {
             List<String> contactList = redisComponet.getUserContactList(tokenUserInfoDto.getUserId());
             if (!contactList.contains(chatMessage.getContactId())) {
                 UserContactTypeEnum userContactTypeEnum = UserContactTypeEnum.getByPrefix(chatMessage.getContactId());
@@ -245,8 +275,169 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             dispatchRobotReply(sendUserId, chatMessage.getMessageContent(), sessionId);
         } else {
             messageHandler.sendMessage(messageSend);
+            if (UserContactTypeEnum.GROUP == contactTypeEnum) {
+                dispatchGroupAgentReplies(contactId, sessionId, messageContent, tokenUserInfoDto, agentDepth);
+            }
         }
         return messageSend;
+    }
+
+    /**
+     * 群消息落库广播之后，看看有没有助手被@到，有就让它们各自回复。
+     */
+    private void dispatchGroupAgentReplies(String groupId, String sessionId, String content,
+                                           TokenUserInfoDto sender, int agentDepth) {
+        //绝大多数群消息都不含@，先做一次零成本的短路，避免每条消息都去查一次群成员
+        if (content == null || content.indexOf('@') < 0) {
+            return;
+        }
+        if (agentDepth >= maxAgentDepth) {
+            logger.info("群助手接话已达最大轮数{}，不再触发, groupId:{}", maxAgentDepth, groupId);
+            return;
+        }
+        List<String> groupAgentIds = findGroupAgentIds(groupId);
+        List<AiAgentDefinition> mentioned = aiAgentRegistry.matchMentions(content, groupAgentIds);
+        for (AiAgentDefinition agent : mentioned) {
+            //助手@到自己不触发，否则它会无限自问自答
+            if (agent.getId().equals(sender.getUserId())) {
+                continue;
+            }
+            dispatchOneGroupAgent(agent, groupId, sessionId, groupAgentIds, agentDepth);
+        }
+    }
+
+    private void dispatchOneGroupAgent(AiAgentDefinition agent, String groupId, String sessionId,
+                                       List<String> groupAgentIds, int agentDepth) {
+        String streamId = UUID.randomUUID().toString().replace("-", "");
+        TokenUserInfoDto agentToken = new TokenUserInfoDto();
+        agentToken.setUserId(agent.getId());
+        agentToken.setNickName(agent.getName());
+        try {
+            aiTaskExecutor.execute(() ->
+                    streamGroupAgentReply(agent, agentToken, groupId, sessionId, groupAgentIds, streamId, agentDepth));
+        } catch (TaskRejectedException e) {
+            //群聊里线程池被打满时直接放弃这次回复，不像单聊那样回一条"繁忙"——
+            //群里塞一堆机器人道歉消息比不回复更吵
+            logger.warn("AI线程池已满，跳过群助手回复, groupId:{}, agentId:{}", groupId, agent.getId());
+        }
+    }
+
+    private void streamGroupAgentReply(AiAgentDefinition agent, TokenUserInfoDto agentToken, String groupId,
+                                       String sessionId, List<String> groupAgentIds, String streamId, int agentDepth) {
+        AtomicInteger index = new AtomicInteger(0);
+        String systemPrompt = buildGroupSystemPrompt(agent, groupAgentIds);
+        String userPrompt = buildGroupContext(agent, sessionId);
+        aiChatService.chatStreamOnce(systemPrompt, userPrompt, new AiStreamCallback() {
+            @Override
+            public void onChunk(String delta) {
+                pushAiStream(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM, streamId,
+                        StringTools.resetMessageContent(delta), index.getAndIncrement());
+            }
+
+            @Override
+            public void onComplete(String fullContent) {
+                pushAiStream(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                        StringTools.resetMessageContent(fullContent), index.getAndIncrement());
+                //助手的回复也走正常落库链路，所以它自己也可能@到别的助手，
+                //depth+1把这条接话链的长度记下来
+                saveAgentGroupMessage(agentToken, groupId, fullContent, agentDepth + 1);
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                //群里出错就安静地不发言，不用错误消息刷屏
+                pushAiStream(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                        "", index.getAndIncrement());
+                logger.warn("群助手回复失败, groupId:{}, agentId:{}, reason:{}",
+                        groupId, agentToken.getUserId(), errorMessage);
+            }
+        });
+    }
+
+    /**
+     * 助手在群里的人设。
+     * 除了配置里的角色设定，还要告诉它群里都有谁、可以怎么把问题转给别的助手——
+     * 助手之间的接力就是靠这句话跑起来的。
+     */
+    private String buildGroupSystemPrompt(AiAgentDefinition agent, List<String> groupAgentIds) {
+        StringBuilder sb = new StringBuilder(agent.getPrompt() == null ? "" : agent.getPrompt());
+        sb.append("\n你现在在一个群聊里，成员有真人也有其他AI助手。");
+        sb.append("发言要简短口语化，像真人在群里说话，不要长篇大论、不要分点罗列。");
+        List<String> peers = new ArrayList<>();
+        for (String id : groupAgentIds) {
+            AiAgentDefinition peer = aiAgentRegistry.getById(id);
+            if (peer != null && !peer.getId().equals(agent.getId())) {
+                peers.add(peer.getName());
+            }
+        }
+        if (!peers.isEmpty()) {
+            sb.append("群里的其他助手有：").append(String.join("、", peers)).append("。");
+            sb.append("如果某个问题明显更适合他们中的某一位回答，你可以在回复里用@加对方昵称把话题交给他；");
+            sb.append("但不要为了客套而@人，没必要时就自己答完。");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 把群聊最近的对话渲染成一段文本给助手看。
+     * 群里有多个说话人，用user/assistant交替的消息列表表达不了谁是谁，
+     * 直接渲染成带昵称的记录反而更清楚。
+     */
+    private String buildGroupContext(AiAgentDefinition agent, String sessionId) {
+        ChatMessageQuery query = new ChatMessageQuery();
+        query.setSessionId(sessionId);
+        query.setMessageType(MessageTypeEnum.CHAT.getType());
+        query.setOrderBy("send_time desc");
+        query.setSimplePage(new SimplePage(0, groupContextSize));
+        List<ChatMessage> list = chatMessageMapper.selectList(query);
+        StringBuilder sb = new StringBuilder("以下是群聊最近的对话记录，按时间从早到晚：\n");
+        if (list != null && !list.isEmpty()) {
+            //查出来是倒序，翻回正序才符合阅读顺序
+            List<ChatMessage> ordered = new ArrayList<>(list);
+            Collections.reverse(ordered);
+            for (ChatMessage item : ordered) {
+                sb.append(item.getSendUserNickName()).append("：")
+                        .append(item.getMessageContent()).append("\n");
+            }
+        }
+        sb.append("\n你是「").append(agent.getName()).append("」，刚刚有人在群里@了你。");
+        sb.append("请针对最后这条消息作出回应。直接说你要说的话，不要加昵称前缀。");
+        return sb.toString();
+    }
+
+    /**
+     * 助手在群里发言落库
+     */
+    private void saveAgentGroupMessage(TokenUserInfoDto agentToken, String groupId, String content, int agentDepth) {
+        try {
+            ChatMessage message = new ChatMessage();
+            message.setContactId(groupId);
+            message.setMessageContent(content);
+            message.setMessageType(MessageTypeEnum.CHAT.getType());
+            saveMessage(message, agentToken, agentDepth);
+        } catch (Exception e) {
+            logger.error("群助手发言落库失败, groupId:{}, agentId:{}", groupId, agentToken.getUserId(), e);
+        }
+    }
+
+    /**
+     * 找出这个群里有哪些AI助手
+     */
+    private List<String> findGroupAgentIds(String groupId) {
+        UserContactQuery query = new UserContactQuery();
+        query.setContactId(groupId);
+        query.setStatus(UserContactStatusEnum.FRIEND.getStatus());
+        List<UserContact> members = userContactMapper.selectList(query);
+        if (members == null || members.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> agentIds = new ArrayList<>();
+        for (UserContact member : members) {
+            if (aiAgentRegistry.getById(member.getUserId()) != null) {
+                agentIds.add(member.getUserId());
+            }
+        }
+        return agentIds;
     }
 
     /**
@@ -314,15 +505,16 @@ public class ChatMessageServiceImpl implements ChatMessageService {
      * 推送一个流式片段。这类消息只走WebSocket，不落库、不更新会话，
      * 真正的消息记录以结束后落库的那条CHAT消息为准。
      */
-    private void pushAiStream(TokenUserInfoDto robot, String userId, String sessionId,
+    private void pushAiStream(TokenUserInfoDto sender, String contactId, String sessionId,
                               MessageTypeEnum messageType, String streamId, String content, Integer index) {
         MessageSendDto<AiStreamChunkDto> chunk = new MessageSendDto<>();
         chunk.setMessageType(messageType.getType());
-        //contactId决定这条消息推送给谁
-        chunk.setContactId(userId);
-        chunk.setContactType(UserContactTypeEnum.USER.getType());
-        chunk.setSendUserId(robot.getUserId());
-        chunk.setSendUserNickName(robot.getNickName());
+        //contactId决定这条消息推给谁：单聊填对方用户ID，群聊填群ID，
+        //ChannelContextUtils会按前缀路由到send2User或sendMsg2Group
+        chunk.setContactId(contactId);
+        chunk.setContactType(UserContactTypeEnum.getByPrefix(contactId).getType());
+        chunk.setSendUserId(sender.getUserId());
+        chunk.setSendUserNickName(sender.getNickName());
         chunk.setSessionId(sessionId);
         chunk.setSendTime(System.currentTimeMillis());
         chunk.setStatus(MessageStatusEnum.SENDED.getStatus());

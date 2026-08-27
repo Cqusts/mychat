@@ -10,6 +10,9 @@ import com.easychat.entity.po.UserContact;
 import com.easychat.entity.query.GroupInfoQuery;
 import com.easychat.entity.query.UserContactQuery;
 import com.easychat.entity.vo.GroupInfoVO;
+import com.easychat.ai.AiAgentDefinition;
+import com.easychat.ai.AiAgentRegistry;
+import com.easychat.entity.vo.AiAgentVO;
 import com.easychat.entity.vo.ResponseVO;
 import com.easychat.exception.BusinessException;
 import com.easychat.service.GroupInfoService;
@@ -22,6 +25,7 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -36,6 +40,9 @@ public class GroupController extends ABaseController {
 
     @Resource
     private GroupInfoService groupInfoService;
+
+    @Resource
+    private AiAgentRegistry aiAgentRegistry;
 
     @Resource
     private UserContactService userContactService;
@@ -161,6 +168,27 @@ public class GroupController extends ABaseController {
      * @param opType
      * @return
      */
+    /**
+     * 列出所有可以拉进群的AI助手。
+     * 助手不是任何人的好友，不会出现在通讯录里，所以要单独给一个列表。
+     * 拿到之后走的还是addOrRemoveGroupUser那条路——助手在系统里就是普通用户。
+     */
+    @RequestMapping(value = "/loadAiAgents")
+    @GlobalInterceptor
+    public ResponseVO loadAiAgents(HttpServletRequest request, @NotEmpty String groupId) {
+        //复用群成员校验：不在群里的人看不到
+        getGroupDetailCommon(request, groupId);
+        List<AiAgentVO> agentList = new ArrayList<>();
+        for (AiAgentDefinition agent : aiAgentRegistry.getAgents()) {
+            AiAgentVO vo = new AiAgentVO();
+            vo.setContactId(agent.getId());
+            vo.setContactName(agent.getName());
+            vo.setSignature(agent.getSignature());
+            agentList.add(vo);
+        }
+        return getSuccessResponseVO(agentList);
+    }
+
     @RequestMapping(value = "/addOrRemoveGroupUser")
     @GlobalInterceptor
     public ResponseVO addOrRemoveGroupUser(HttpServletRequest request, @NotEmpty String groupId, @NotEmpty String selectContacts,

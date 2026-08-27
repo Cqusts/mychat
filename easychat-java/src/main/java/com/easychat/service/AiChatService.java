@@ -23,4 +23,16 @@ public interface AiChatService {
      * @param callback 片段回调
      */
     void chatStream(String userId, String message, AiStreamCallback callback);
+
+    /**
+     * 无记忆的一次性流式对话，上下文完全由调用方拼好。
+     * 群聊场景走这个：群里有多个说话人，用单一的user/assistant交替历史表达不了，
+     * 把群聊记录直接渲染成一段文本反而更可靠。
+     * 同样会阻塞到整轮结束，需要放到线程池里执行。
+     *
+     * @param systemPrompt 助手人设
+     * @param userPrompt   已经拼好的上下文（群聊记录 + 本次要回应的内容）
+     * @param callback     片段回调
+     */
+    void chatStreamOnce(String systemPrompt, String userPrompt, AiStreamCallback callback);
 }

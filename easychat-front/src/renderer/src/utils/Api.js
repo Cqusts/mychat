@@ -14,6 +14,7 @@ const api = {
     dissolutionGroup: "/group/dissolutionGroup",//解散群组
     leaveGroup: "/group/leaveGroup",//退出群组
     addOrRemoveGroupUser: "/group/addOrRemoveGroupUser",//添加或者删除群成员
+    loadAiAgents: "/group/loadAiAgents",//获取可拉进群的AI助手列表
     search: "/contact/search",//搜索好友
     applyAdd: "/contact/applyAdd",//申请加入
     loadApply: "/contact/loadApply",//获取申请列表

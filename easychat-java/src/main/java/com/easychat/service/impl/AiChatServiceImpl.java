@@ -4,6 +4,7 @@ import com.easychat.ai.AiToolFactory;
 import com.easychat.service.AiChatMemory;
 import com.easychat.service.AiChatService;
 import com.easychat.service.AiStreamCallback;
+import com.easychat.utils.StringTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -92,13 +93,35 @@ public class AiChatServiceImpl implements AiChatService {
 
     @Override
     public void chatStream(String userId, String message, AiStreamCallback callback) {
+        //单聊：带持久化记忆，并把业务工具开放给模型
+        doStream(buildMessages(userId, message), userId, userId, message, callback);
+    }
+
+    @Override
+    public void chatStreamOnce(String systemPrompt, String userPrompt, AiStreamCallback callback) {
+        List<Message> messages = List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt));
+        //群聊：上下文由调用方给全，不写记忆；
+        //也暂不开放工具——工具是按用户维度鉴权的，群里由谁授权尚未定义，先不给
+        doStream(messages, null, null, null, callback);
+    }
+
+    /**
+     * 流式对话的公共实现。
+     *
+     * @param messages          送给模型的完整消息列表
+     * @param toolUserId        以谁的身份提供业务工具，null表示本次不开放工具
+     * @param memoryUserId      把本轮对话写入谁的记忆，null表示不写记忆
+     * @param memoryUserMessage 写入记忆时记录的用户提问原文
+     */
+    private void doStream(List<Message> messages, String toolUserId, String memoryUserId,
+                          String memoryUserMessage, AiStreamCallback callback) {
         //完整回复内容
         StringBuilder full = new StringBuilder();
         //尚未推送的缓冲区
         StringBuilder pending = new StringBuilder();
         try {
-            Prompt prompt = new Prompt(buildMessages(userId, message));
-            Flux<String> flux = withTools(chatClient.prompt(prompt), userId, callback)
+            Prompt prompt = new Prompt(messages);
+            Flux<String> flux = withTools(chatClient.prompt(prompt), toolUserId, callback)
                     .stream().content()
                     .timeout(Duration.ofSeconds(timeoutSeconds));
 
@@ -124,10 +147,10 @@ public class AiChatServiceImpl implements AiChatService {
             }
 
             String reply = full.toString();
-            aiChatMemory.append(userId, message, reply);
+            appendMemory(memoryUserId, memoryUserMessage, reply);
             callback.onComplete(reply);
         } catch (Exception e) {
-            logger.error("AI流式对话异常, userId: {}, message: {}", userId, message, e);
+            logger.error("AI流式对话异常, userId: {}", memoryUserId, e);
             if (full.length() == 0) {
                 callback.onError(FALLBACK_REPLY);
                 return;
@@ -139,7 +162,7 @@ public class AiChatServiceImpl implements AiChatService {
             callback.onChunk(INTERRUPTED_TIP);
             full.append(INTERRUPTED_TIP);
             String reply = full.toString();
-            aiChatMemory.append(userId, message, reply);
+            appendMemory(memoryUserId, memoryUserMessage, reply);
             callback.onComplete(reply);
         }
     }
@@ -165,13 +188,23 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     /**
+     * 有记忆用户时才写入，群聊场景传null直接跳过
+     */
+    private void appendMemory(String memoryUserId, String userMessage, String reply) {
+        if (StringTools.isEmpty(memoryUserId)) {
+            return;
+        }
+        aiChatMemory.append(memoryUserId, userMessage, reply);
+    }
+
+    /**
      * 给本次请求挂上业务工具。
      * 工具实例是每次新建的，里面绑好了当前用户身份——
      * userId不作为工具参数暴露给模型，模型没法伪造身份去读别人的数据。
      */
     private ChatClient.ChatClientRequestSpec withTools(ChatClient.ChatClientRequestSpec spec,
                                                        String userId, AiStreamCallback callback) {
-        if (!Boolean.TRUE.equals(toolsEnabled)) {
+        if (!Boolean.TRUE.equals(toolsEnabled) || StringTools.isEmpty(userId)) {
             return spec;
         }
         return spec.tools(aiToolFactory.create(userId, callback));
