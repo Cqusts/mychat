@@ -78,12 +78,12 @@ public class AiChatServiceImpl implements AiChatService {
     private Long timeoutSeconds;
 
     @Override
-    public String chat(String userId, String message) {
+    public String chat(String agentId, String systemPrompt, String userId, String message) {
         try {
-            Prompt prompt = new Prompt(buildMessages(userId, message));
+            Prompt prompt = new Prompt(buildMessages(agentId, systemPrompt, userId, message));
             //非流式场景没有回调，工具调用状态无处可推，传null
             String reply = withTools(chatClient.prompt(prompt), userId, null).call().content();
-            aiChatMemory.append(userId, message, reply);
+            aiChatMemory.append(userId, agentId, message, reply);
             return reply;
         } catch (Exception e) {
             logger.error("AI对话异常, userId: {}, message: {}", userId, message, e);
@@ -92,9 +92,11 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     @Override
-    public void chatStream(String userId, String message, AiStreamCallback callback) {
-        //单聊：带持久化记忆，并把业务工具开放给模型
-        doStream(buildMessages(userId, message), userId, userId, message, callback);
+    public void chatStream(String agentId, String systemPrompt, String userId, String message,
+                           AiStreamCallback callback) {
+        //单聊：带持久化记忆，并把业务工具开放给模型。
+        //工具以提问者的身份执行——单聊场景下"查谁的数据"是明确的
+        doStream(buildMessages(agentId, systemPrompt, userId, message), userId, userId, agentId, message, callback);
     }
 
     @Override
@@ -102,7 +104,7 @@ public class AiChatServiceImpl implements AiChatService {
         List<Message> messages = List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt));
         //群聊：上下文由调用方给全，不写记忆；
         //也暂不开放工具——工具是按用户维度鉴权的，群里由谁授权尚未定义，先不给
-        doStream(messages, null, null, null, callback);
+        doStream(messages, null, null, null, null, callback);
     }
 
     /**
@@ -111,9 +113,10 @@ public class AiChatServiceImpl implements AiChatService {
      * @param messages          送给模型的完整消息列表
      * @param toolUserId        以谁的身份提供业务工具，null表示本次不开放工具
      * @param memoryUserId      把本轮对话写入谁的记忆，null表示不写记忆
+     * @param memoryAgentId     记忆归属的助手
      * @param memoryUserMessage 写入记忆时记录的用户提问原文
      */
-    private void doStream(List<Message> messages, String toolUserId, String memoryUserId,
+    private void doStream(List<Message> messages, String toolUserId, String memoryUserId, String memoryAgentId,
                           String memoryUserMessage, AiStreamCallback callback) {
         //完整回复内容
         StringBuilder full = new StringBuilder();
@@ -147,7 +150,7 @@ public class AiChatServiceImpl implements AiChatService {
             }
 
             String reply = full.toString();
-            appendMemory(memoryUserId, memoryUserMessage, reply);
+            appendMemory(memoryUserId, memoryAgentId, memoryUserMessage, reply);
             callback.onComplete(reply);
         } catch (Exception e) {
             logger.error("AI流式对话异常, userId: {}", memoryUserId, e);
@@ -162,7 +165,7 @@ public class AiChatServiceImpl implements AiChatService {
             callback.onChunk(INTERRUPTED_TIP);
             full.append(INTERRUPTED_TIP);
             String reply = full.toString();
-            appendMemory(memoryUserId, memoryUserMessage, reply);
+            appendMemory(memoryUserId, memoryAgentId, memoryUserMessage, reply);
             callback.onComplete(reply);
         }
     }
@@ -190,11 +193,11 @@ public class AiChatServiceImpl implements AiChatService {
     /**
      * 有记忆用户时才写入，群聊场景传null直接跳过
      */
-    private void appendMemory(String memoryUserId, String userMessage, String reply) {
-        if (StringTools.isEmpty(memoryUserId)) {
+    private void appendMemory(String memoryUserId, String memoryAgentId, String userMessage, String reply) {
+        if (StringTools.isEmpty(memoryUserId) || StringTools.isEmpty(memoryAgentId)) {
             return;
         }
-        aiChatMemory.append(memoryUserId, userMessage, reply);
+        aiChatMemory.append(memoryUserId, memoryAgentId, userMessage, reply);
     }
 
     /**
@@ -213,10 +216,11 @@ public class AiChatServiceImpl implements AiChatService {
     /**
      * 组装送给大模型的消息列表：系统提示 + 历史对话 + 当前消息
      */
-    private List<Message> buildMessages(String userId, String message) {
+    private List<Message> buildMessages(String agentId, String agentSystemPrompt, String userId, String message) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(systemPrompt));
-        messages.addAll(aiChatMemory.load(userId));
+        //助手没给自己的人设就用配置里的默认人设
+        messages.add(new SystemMessage(StringTools.isEmpty(agentSystemPrompt) ? systemPrompt : agentSystemPrompt));
+        messages.addAll(aiChatMemory.load(userId, agentId));
         messages.add(new UserMessage(message));
         return messages;
     }

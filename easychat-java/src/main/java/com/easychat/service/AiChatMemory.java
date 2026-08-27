@@ -12,17 +12,19 @@ import java.util.List;
 public interface AiChatMemory {
 
     /**
-     * 读取某个用户的历史对话
+     * 读取某个用户与某个助手之间的历史对话。
+     * 按(用户,助手)两个维度隔离：同一个人可以同时和多个助手私聊，
+     * 各自的上下文不能混在一起。
      */
-    List<Message> load(String userId);
+    List<Message> load(String userId, String agentId);
 
     /**
      * 追加一轮完整对话（一问一答）
      */
-    void append(String userId, String userContent, String assistantContent);
+    void append(String userId, String agentId, String userContent, String assistantContent);
 
     /**
-     * 清空某个用户的对话历史
+     * 清空某个用户与某个助手的对话历史
      */
-    void clear(String userId);
+    void clear(String userId, String agentId);
 }

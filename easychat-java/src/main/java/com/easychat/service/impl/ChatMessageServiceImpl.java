@@ -269,10 +269,10 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             chatMessageMapper.insert(chatMessage);
         }
         MessageSendDto messageSend = CopyTools.copy(chatMessage, MessageSendDto.class);
-        if (Constants.ROBOT_UID.equals(contactId)) {
+        if (isSingleChatAgent(contactId)) {
             //用户消息已经落库，AI回复交给独立线程池异步生成：
             //生成过程中的片段直接走WebSocket推送，HTTP请求线程立即返回，不再被大模型的秒级耗时拖住
-            dispatchRobotReply(sendUserId, chatMessage.getMessageContent(), sessionId);
+            dispatchAgentReply(contactId, sendUserId, chatMessage.getMessageContent(), sessionId);
         } else {
             messageHandler.sendMessage(messageSend);
             if (UserContactTypeEnum.GROUP == contactTypeEnum) {
@@ -441,45 +441,80 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     }
 
     /**
-     * 投递一次AI回复任务到AI线程池
+     * 判断私聊的对象是不是AI助手。
+     * 内置的单聊机器人和配置出来的助手都算——助手被加为好友之后就能直接私聊。
+     */
+    private boolean isSingleChatAgent(String contactId) {
+        return Constants.ROBOT_UID.equals(contactId) || aiAgentRegistry.getById(contactId) != null;
+    }
+
+    /**
+     * 投递一次私聊AI回复任务到AI线程池
      *
+     * @param agentId     被私聊的助手ID
      * @param userId      提问的用户
      * @param userMessage 用户的提问内容
-     * @param sessionId   用户与机器人的会话ID
+     * @param sessionId   两者的会话ID
      */
-    private void dispatchRobotReply(String userId, String userMessage, String sessionId) {
-        SysSettingDto sysSettingDto = redisComponet.getSysSetting();
-        TokenUserInfoDto robot = new TokenUserInfoDto();
-        robot.setUserId(sysSettingDto.getRobotUid());
-        robot.setNickName(sysSettingDto.getRobotNickName());
+    private void dispatchAgentReply(String agentId, String userId, String userMessage, String sessionId) {
+        TokenUserInfoDto agentToken = new TokenUserInfoDto();
+        String systemPrompt = null;
+        AiAgentDefinition agent = aiAgentRegistry.getById(agentId);
+        if (agent != null) {
+            //配置出来的助手，用它自己的人设
+            agentToken.setUserId(agent.getId());
+            agentToken.setNickName(agent.getName());
+            systemPrompt = buildSingleChatSystemPrompt(agent);
+        } else {
+            //内置的单聊机器人，身份来自系统设置，人设走ai.chat.system-prompt默认值
+            SysSettingDto sysSettingDto = redisComponet.getSysSetting();
+            agentToken.setUserId(sysSettingDto.getRobotUid());
+            agentToken.setNickName(sysSettingDto.getRobotNickName());
+        }
         String streamId = UUID.randomUUID().toString().replace("-", "");
+        String prompt = systemPrompt;
         try {
-            aiTaskExecutor.execute(() -> streamRobotReply(robot, userId, userMessage, sessionId, streamId));
+            aiTaskExecutor.execute(() ->
+                    streamAgentReply(agentToken, prompt, userId, userMessage, sessionId, streamId));
         } catch (TaskRejectedException e) {
             //线程和队列都满了，快速失败并给用户一个明确答复，而不是让请求一直挂着。
             //注意这里必须捕获Spring的TaskRejectedException：
             //ThreadPoolTaskExecutor会把JDK的RejectedExecutionException包装后再抛出
-            logger.warn("AI线程池已满，拒绝本次请求, userId:{}", userId);
-            saveRobotMessage(robot, userId, ROBOT_BUSY_TIP);
+            logger.warn("AI线程池已满，拒绝本次请求, userId:{}, agentId:{}", userId, agentId);
+            saveAgentSingleMessage(agentToken, userId, ROBOT_BUSY_TIP);
         }
+    }
+
+    /**
+     * 助手私聊时的人设。
+     * 在配置的角色设定之外补上工具使用说明——私聊场景下工具以提问者的身份执行，
+     * "查谁的数据"是明确的，所以可以放心开放。
+     */
+    private String buildSingleChatSystemPrompt(AiAgentDefinition agent) {
+        StringBuilder sb = new StringBuilder(agent.getPrompt() == null ? "" : agent.getPrompt());
+        sb.append("\n你正在和用户一对一私聊，回答简洁自然，不要长篇大论。");
+        sb.append("你可以调用工具查询这位用户的好友列表、群聊列表和聊天记录：");
+        sb.append("需要这些信息时直接调用工具，不要凭空编造，也不要向用户索要联系人ID。");
+        sb.append("遇到“上周”“昨天”这类相对时间，先调getCurrentTime确认今天是哪天。");
+        return sb.toString();
     }
 
     /**
      * 在AI线程池中执行：流式取回复 -> 逐片段推送 -> 结束后落库
      */
-    private void streamRobotReply(TokenUserInfoDto robot, String userId, String userMessage,
-                                  String sessionId, String streamId) {
+    private void streamAgentReply(TokenUserInfoDto agentToken, String systemPrompt, String userId,
+                                  String userMessage, String sessionId, String streamId) {
         AtomicInteger index = new AtomicInteger(0);
-        aiChatService.chatStream(userId, userMessage, new AiStreamCallback() {
+        aiChatService.chatStream(agentToken.getUserId(), systemPrompt, userId, userMessage, new AiStreamCallback() {
             @Override
             public void onChunk(String delta) {
-                pushAiStream(robot, userId, sessionId, MessageTypeEnum.AI_STREAM, streamId,
+                pushAiStream(agentToken, userId, sessionId, MessageTypeEnum.AI_STREAM, streamId,
                         StringTools.resetMessageContent(delta), index.getAndIncrement());
             }
 
             @Override
             public void onToolCall(String toolHint) {
-                pushAiStream(robot, userId, sessionId, MessageTypeEnum.AI_TOOL_CALL, streamId,
+                pushAiStream(agentToken, userId, sessionId, MessageTypeEnum.AI_TOOL_CALL, streamId,
                         toolHint, index.getAndIncrement());
             }
 
@@ -487,16 +522,16 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             public void onComplete(String fullContent) {
                 //先告知前端流已结束，再落库；
                 //落库后的正式消息会顺着原有链路推给前端，用来替换掉临时的流式气泡
-                pushAiStream(robot, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                pushAiStream(agentToken, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
                         StringTools.resetMessageContent(fullContent), index.getAndIncrement());
-                saveRobotMessage(robot, userId, fullContent);
+                saveAgentSingleMessage(agentToken, userId, fullContent);
             }
 
             @Override
             public void onError(String errorMessage) {
-                pushAiStream(robot, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                pushAiStream(agentToken, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
                         StringTools.resetMessageContent(errorMessage), index.getAndIncrement());
-                saveRobotMessage(robot, userId, errorMessage);
+                saveAgentSingleMessage(agentToken, userId, errorMessage);
             }
         });
     }
@@ -523,18 +558,18 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     }
 
     /**
-     * 机器人回复落库，复用原有saveMessage链路（更新会话、推送正式消息）。
+     * 助手私聊回复落库，复用原有saveMessage链路（更新会话、推送正式消息）。
      * 运行在AI线程池中，异常不能往外抛，否则会打挂线程池里的任务。
      */
-    private void saveRobotMessage(TokenUserInfoDto robot, String userId, String content) {
+    private void saveAgentSingleMessage(TokenUserInfoDto agentToken, String userId, String content) {
         try {
-            ChatMessage robotChatMessage = new ChatMessage();
-            robotChatMessage.setContactId(userId);
-            robotChatMessage.setMessageContent(content);
-            robotChatMessage.setMessageType(MessageTypeEnum.CHAT.getType());
-            saveMessage(robotChatMessage, robot);
+            ChatMessage agentMessage = new ChatMessage();
+            agentMessage.setContactId(userId);
+            agentMessage.setMessageContent(content);
+            agentMessage.setMessageType(MessageTypeEnum.CHAT.getType());
+            saveMessage(agentMessage, agentToken);
         } catch (Exception e) {
-            logger.error("机器人回复落库失败, userId:{}", userId, e);
+            logger.error("助手私聊回复落库失败, userId:{}, agentId:{}", userId, agentToken.getUserId(), e);
         }
     }
 

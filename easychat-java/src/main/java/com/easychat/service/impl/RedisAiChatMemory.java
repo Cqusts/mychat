@@ -45,9 +45,9 @@ public class RedisAiChatMemory implements AiChatMemory {
     private Integer expireDays;
 
     @Override
-    public List<Message> load(String userId) {
+    public List<Message> load(String userId, String agentId) {
         try {
-            RList<AiHistoryMessageDto> list = getList(userId);
+            RList<AiHistoryMessageDto> list = getList(userId, agentId);
             if (list == null || list.isEmpty()) {
                 return Collections.emptyList();
             }
@@ -65,15 +65,15 @@ public class RedisAiChatMemory implements AiChatMemory {
             return messages;
         } catch (Exception e) {
             //Redis异常时退化成无记忆的单轮对话，而不是让整个回复失败
-            logger.error("读取AI对话历史失败, userId:{}", userId, e);
+            logger.error("读取AI对话历史失败, userId:{}, agentId:{}", userId, agentId, e);
             return Collections.emptyList();
         }
     }
 
     @Override
-    public void append(String userId, String userContent, String assistantContent) {
+    public void append(String userId, String agentId, String userContent, String assistantContent) {
         try {
-            RList<AiHistoryMessageDto> list = getList(userId);
+            RList<AiHistoryMessageDto> list = getList(userId, agentId);
             if (list == null) {
                 return;
             }
@@ -90,27 +90,28 @@ public class RedisAiChatMemory implements AiChatMemory {
             }
             list.expire(java.time.Duration.ofDays(expireDays));
         } catch (Exception e) {
-            logger.error("写入AI对话历史失败, userId:{}", userId, e);
+            logger.error("写入AI对话历史失败, userId:{}, agentId:{}", userId, agentId, e);
         }
     }
 
     @Override
-    public void clear(String userId) {
+    public void clear(String userId, String agentId) {
         try {
-            RList<AiHistoryMessageDto> list = getList(userId);
+            RList<AiHistoryMessageDto> list = getList(userId, agentId);
             if (list != null) {
                 list.delete();
             }
         } catch (Exception e) {
-            logger.error("清空AI对话历史失败, userId:{}", userId, e);
+            logger.error("清空AI对话历史失败, userId:{}, agentId:{}", userId, agentId, e);
         }
     }
 
-    private RList<AiHistoryMessageDto> getList(String userId) {
+    private RList<AiHistoryMessageDto> getList(String userId, String agentId) {
         if (redissonClient == null) {
             logger.warn("RedissonClient不可用，AI对话降级为无上下文模式");
             return null;
         }
-        return redissonClient.getList(Constants.REDIS_KEY_AI_HISTORY + userId);
+        //key带上助手ID：同一个人和小E、小P的私聊各有各的上下文
+        return redissonClient.getList(Constants.REDIS_KEY_AI_HISTORY + userId + ":" + agentId);
     }
 }

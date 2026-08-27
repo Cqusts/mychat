@@ -128,8 +128,34 @@ const partList = ref([
     contactData: [],
     contactPath: '/contact/userDetail',
     emptyMsg: '暂无好友'
+  },
+  {
+    partName: 'AI 助手',
+    contactId: 'contactId',
+    contactName: 'contactName',
+    contactData: [],
+    //点进去走搜好友页：没加过就是"添加到联系人"，加过就是"发消息"，
+    //复用现成的流程，不用为助手单独做一套
+    contactPath: '/contact/search',
+    emptyMsg: '后台未配置AI助手'
   }
 ])
+
+//AI助手不是任何人的好友，不会出现在通讯录里，得单独拉一份让用户能发现它们
+const loadAiAgents = async () => {
+  let result = await proxy.Request({
+    url: proxy.Api.loadAiAgents,
+    showError: false
+  })
+  if (!result) {
+    return
+  }
+  const agentPart = partList.value.find((item) => item.partName == 'AI 助手')
+  if (agentPart) {
+    agentPart.contactData = result.data
+  }
+}
+loadAiAgents()
 
 const rightTitle = ref()
 const partJump = (data) => {

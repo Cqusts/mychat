@@ -86,16 +86,15 @@ const show = async (groupId) => {
   showDrawer.value = true
   memberList.value = result.data.userContactList
   groupInfo.value = result.data.groupInfo
-  await loadAgents(groupId)
+  await loadAgents()
 }
 
 //群成员里哪些是AI助手，用来打标签，顺便给"添加助手"复用
 const agentIds = ref([])
 const agentList = ref([])
-const loadAgents = async (groupId) => {
+const loadAgents = async () => {
   let result = await proxy.Request({
     url: proxy.Api.loadAiAgents,
-    params: { groupId },
     showError: false
   })
   if (!result) {

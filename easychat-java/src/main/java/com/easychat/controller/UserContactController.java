@@ -12,6 +12,9 @@ import com.easychat.entity.po.UserInfo;
 import com.easychat.entity.query.UserContactApplyQuery;
 import com.easychat.entity.query.UserContactQuery;
 import com.easychat.entity.vo.PaginationResultVO;
+import com.easychat.ai.AiAgentDefinition;
+import com.easychat.ai.AiAgentRegistry;
+import com.easychat.entity.vo.AiAgentVO;
 import com.easychat.entity.vo.ResponseVO;
 import com.easychat.entity.vo.UserInfoVO;
 import com.easychat.exception.BusinessException;
@@ -31,6 +34,7 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -40,6 +44,9 @@ public class UserContactController extends ABaseController {
 
     @Resource
     private UserInfoService userInfoService;
+
+    @Resource
+    private AiAgentRegistry aiAgentRegistry;
 
     @Resource
     private GroupInfoService groupInfoService;
@@ -59,6 +66,25 @@ public class UserContactController extends ABaseController {
         TokenUserInfoDto tokenUserInfoDto = getTokenUserInfo(request);
         UserContactSearchResultDto resultDto = userContactService.searchContact(tokenUserInfoDto.getUserId(), contactId);
         return getSuccessResponseVO(resultDto);
+    }
+
+    /**
+     * 列出系统里所有的AI助手。
+     * 助手不是任何人的好友，也不会出现在搜索推荐里，需要单独给一个列表让用户发现它们。
+     * 拿到ID之后走的还是普通的加好友流程——助手的joinType是"直接加入"，不需要审批。
+     */
+    @RequestMapping("/loadAiAgents")
+    @GlobalInterceptor
+    public ResponseVO loadAiAgents() {
+        List<AiAgentVO> agentList = new ArrayList<>();
+        for (AiAgentDefinition agent : aiAgentRegistry.getAgents()) {
+            AiAgentVO vo = new AiAgentVO();
+            vo.setContactId(agent.getId());
+            vo.setContactName(agent.getName());
+            vo.setSignature(agent.getSignature());
+            agentList.add(vo);
+        }
+        return getSuccessResponseVO(agentList);
     }
 
     @RequestMapping("/applyAdd")

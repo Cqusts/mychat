@@ -45,13 +45,14 @@
 
 <script setup>
 import SearchAdd from './SearchAdd.vue'
-import { ref, reactive, getCurrentInstance, nextTick, computed } from 'vue'
+import { ref, reactive, getCurrentInstance, nextTick, computed, watch } from 'vue'
 const { proxy } = getCurrentInstance()
 import { useUserInfoStore } from '@/stores/UserInfoStore'
 const userInfoStore = useUserInfoStore()
 
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 const router = useRouter()
+const route = useRoute()
 
 const contactTypeName = computed(() => {
   if (userInfoStore.getInfo().userId === searchResult.value.contactId) {
@@ -85,6 +86,20 @@ const searchAddRef = ref()
 const applyContact = async () => {
   searchAddRef.value.show(searchResult.value)
 }
+
+//从别处带着contactId跳进来（比如联系人页的AI助手列表）就直接搜出来，
+//省掉让用户手抄一遍助手ID这一步。
+//用watch而不是onMounted：已经停在搜索页时再点另一个助手，组件不会重新挂载
+watch(
+  () => route.query.contactId,
+  (newContactId) => {
+    if (newContactId) {
+      contactId.value = newContactId
+      search()
+    }
+  },
+  { immediate: true }
+)
 
 const resetForm = () => {
   searchResult.value = {}
