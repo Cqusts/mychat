@@ -82,6 +82,11 @@ public class Constants {
     //系统设置
     public static final String REDIS_KEY_SYS_SETTING = "easychat:syssetting:";
 
+    /**
+     * AI多轮对话历史，后接userId
+     */
+    public static final String REDIS_KEY_AI_HISTORY = "easychat:ai:history:";
+
     public static final String APP_UPDATE_FOLDER = "/app/";
 
     public static final String APP_NAME = "EasyChatSetup.";

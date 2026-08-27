@@ -1,11 +1,12 @@
 package com.easychat.service.impl;
 
+import com.easychat.ai.AiToolFactory;
+import com.easychat.service.AiChatMemory;
 import com.easychat.service.AiChatService;
 import com.easychat.service.AiStreamCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -17,10 +18,7 @@ import reactor.core.publisher.Flux;
 import jakarta.annotation.Resource;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * AI大模型对话服务实现
@@ -41,11 +39,22 @@ public class AiChatServiceImpl implements AiChatService {
     @Resource
     private ChatClient chatClient;
 
+    @Resource
+    private AiChatMemory aiChatMemory;
+
+    @Resource
+    private AiToolFactory aiToolFactory;
+
     @Value("${ai.chat.system-prompt:你是EasyChat的智能助手，请用简洁友好的中文回答用户的问题。}")
     private String systemPrompt;
 
-    @Value("${ai.chat.max-history:20}")
-    private Integer maxHistory;
+    /**
+     * 是否开放业务工具给模型调用。
+     * 留开关是因为工具调用依赖模型本身的Function Calling能力，
+     * 换到不支持的模型上可以直接关掉退回纯对话。
+     */
+    @Value("${ai.chat.tools.enabled:true}")
+    private Boolean toolsEnabled;
 
     /**
      * 片段聚合阈值：缓冲区达到该字符数就推送一次
@@ -67,20 +76,13 @@ public class AiChatServiceImpl implements AiChatService {
     @Value("${ai.chat.stream.timeout-seconds:120}")
     private Long timeoutSeconds;
 
-    /**
-     * 用户多轮对话历史（内存缓存）
-     * key: userId, value: 最近N轮对话消息列表
-     * TODO 多实例部署时此处会导致上下文分裂，下一步替换为Redis实现
-     */
-    private final Map<String, LinkedList<Message>> conversationHistory = new ConcurrentHashMap<>();
-
     @Override
     public String chat(String userId, String message) {
-        UserMessage userMessage = new UserMessage(message);
         try {
-            Prompt prompt = new Prompt(buildMessages(userId, userMessage));
-            String reply = chatClient.prompt(prompt).call().content();
-            appendHistory(userId, userMessage, reply);
+            Prompt prompt = new Prompt(buildMessages(userId, message));
+            //非流式场景没有回调，工具调用状态无处可推，传null
+            String reply = withTools(chatClient.prompt(prompt), userId, null).call().content();
+            aiChatMemory.append(userId, message, reply);
             return reply;
         } catch (Exception e) {
             logger.error("AI对话异常, userId: {}, message: {}", userId, message, e);
@@ -90,14 +92,14 @@ public class AiChatServiceImpl implements AiChatService {
 
     @Override
     public void chatStream(String userId, String message, AiStreamCallback callback) {
-        UserMessage userMessage = new UserMessage(message);
         //完整回复内容
         StringBuilder full = new StringBuilder();
         //尚未推送的缓冲区
         StringBuilder pending = new StringBuilder();
         try {
-            Prompt prompt = new Prompt(buildMessages(userId, userMessage));
-            Flux<String> flux = chatClient.prompt(prompt).stream().content()
+            Prompt prompt = new Prompt(buildMessages(userId, message));
+            Flux<String> flux = withTools(chatClient.prompt(prompt), userId, callback)
+                    .stream().content()
                     .timeout(Duration.ofSeconds(timeoutSeconds));
 
             long lastFlushAt = System.currentTimeMillis();
@@ -122,7 +124,7 @@ public class AiChatServiceImpl implements AiChatService {
             }
 
             String reply = full.toString();
-            appendHistory(userId, userMessage, reply);
+            aiChatMemory.append(userId, message, reply);
             callback.onComplete(reply);
         } catch (Exception e) {
             logger.error("AI流式对话异常, userId: {}, message: {}", userId, message, e);
@@ -137,7 +139,7 @@ public class AiChatServiceImpl implements AiChatService {
             callback.onChunk(INTERRUPTED_TIP);
             full.append(INTERRUPTED_TIP);
             String reply = full.toString();
-            appendHistory(userId, userMessage, reply);
+            aiChatMemory.append(userId, message, reply);
             callback.onComplete(reply);
         }
     }
@@ -163,31 +165,26 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     /**
-     * 组装送给大模型的消息列表：系统提示 + 历史对话 + 当前消息
+     * 给本次请求挂上业务工具。
+     * 工具实例是每次新建的，里面绑好了当前用户身份——
+     * userId不作为工具参数暴露给模型，模型没法伪造身份去读别人的数据。
      */
-    private List<Message> buildMessages(String userId, UserMessage userMessage) {
-        List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(systemPrompt));
-        LinkedList<Message> history = conversationHistory.computeIfAbsent(userId, k -> new LinkedList<>());
-        synchronized (history) {
-            messages.addAll(history);
+    private ChatClient.ChatClientRequestSpec withTools(ChatClient.ChatClientRequestSpec spec,
+                                                       String userId, AiStreamCallback callback) {
+        if (!Boolean.TRUE.equals(toolsEnabled)) {
+            return spec;
         }
-        messages.add(userMessage);
-        return messages;
+        return spec.tools(aiToolFactory.create(userId, callback));
     }
 
     /**
-     * 记录本轮对话，并按最大轮数淘汰最早的一问一答
+     * 组装送给大模型的消息列表：系统提示 + 历史对话 + 当前消息
      */
-    private void appendHistory(String userId, UserMessage userMessage, String reply) {
-        LinkedList<Message> history = conversationHistory.computeIfAbsent(userId, k -> new LinkedList<>());
-        synchronized (history) {
-            history.add(userMessage);
-            history.add(new AssistantMessage(reply));
-            while (history.size() > maxHistory * 2) {
-                history.removeFirst();
-                history.removeFirst();
-            }
-        }
+    private List<Message> buildMessages(String userId, String message) {
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(systemPrompt));
+        messages.addAll(aiChatMemory.load(userId));
+        messages.add(new UserMessage(message));
+        return messages;
     }
 }
