@@ -236,7 +236,7 @@ spring.ai.openai.chat.options.model=deepseek-chat
 ```bash
 cd easychat-java
 mvn clean package -DskipTests
-java -jar target/easychat-java-1.0.0.jar
+java -jar target/easychat-1.0.jar
 ```
 
 启动成功后：
