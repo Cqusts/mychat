@@ -375,6 +375,43 @@ npm run build:linux   # Linux
 
 使用方式见 [benchmark/README.md](benchmark/README.md)。
 
+## 启用需求流水线的编码与测试环节
+
+群里 @ 产品经理提需求，会自动跑一条流水线：
+
+```
+需求分析 → 方案设计 → 方案评审 ──┬─【通过】→ 编码实现 → 测试验证 → 完成
+              ↑                  │
+              └──【打回】≤2次─────┘
+```
+
+前三步开箱即用。**编码和测试会真的在你机器上写文件、跑 Maven、推 git，所以默认关闭**，
+确认理解下面的边界后再打开：
+
+```yaml
+ai:
+  coder:
+    enabled: true                            # 默认 false
+    workspace: "D:/easychat-ai-workspace"    # ⚠️ 独立目录，不要指向你自己的仓库
+    source-repo: "D:/JavaProject/mychat"     # 用来读 origin 地址
+```
+
+前置条件：`git` 和 `mvn` 在 PATH 里（不在就填 `ai.coder.git-command` / `maven-command` 的绝对路径），
+且 git 能免密推送（配好 SSH key 或 credential helper），否则推送会卡住。
+
+安全边界都在 `CoderWorkspace` 一个类里：
+
+| 防护 | 做法 |
+|------|------|
+| 独立工作区 | 另外克隆一份，不碰你正在用的工作树 |
+| 路径校验 | 文件操作解析后必须仍在工作区内，挡掉 `../` 和绝对路径 |
+| 命令白名单 | 只跑写死的 git/mvn 子命令，参数以数组传给 `ProcessBuilder`，不拼 shell |
+| 分支白名单 | 正则只放行 `ai/` 前缀，碰不到 `main` 和你的开发分支 |
+| 推送时机 | 由引擎在编译通过后决定，模型没有提交推送的工具 |
+
+引擎不信模型的自述：会自己检查工作区是否真有改动、自己再编译一次，
+编译不通过就带着报错让它修，仍然不过就放弃推送。
+
 ## 升级已有数据库
 
 如果你的 `easychat` 库是在引入 AI 功能之前建的，需要跑一次：

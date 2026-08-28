@@ -170,6 +170,12 @@
             <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
             <version>${spring-ai.version}</version>
         </dependency>
+        <!-- 测试工程师助手要写JUnit用例并真跑起来，项目原本一个测试依赖都没有 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <repositories>

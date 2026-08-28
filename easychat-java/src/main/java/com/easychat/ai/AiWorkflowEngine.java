@@ -75,6 +75,9 @@ public class AiWorkflowEngine {
     @Value("${ai.workflow.agents.coding:}")
     private String codingAgentId;
 
+    @Value("${ai.workflow.agents.testing:}")
+    private String testingAgentId;
+
     /**
      * 写代码要反复搜索、读文件、编译，和聊天用同一个超时根本不够
      */
@@ -234,6 +237,9 @@ public class AiWorkflowEngine {
                     break;
                 case CODING:
                     task = runCoding(task);
+                    break;
+                case TESTING:
+                    task = runTesting(task);
                     break;
                 default:
                     //DONE / FAILED
@@ -459,6 +465,70 @@ public class AiWorkflowEngine {
             return null;
         }
 
+        //代码已经推上去了，接着让测试工程师写用例验证
+        if (aiAgentRegistry.getById(testingAgentId) == null) {
+            task.setStage(AiWorkflowStageEnum.DONE.name());
+            saveTask(task);
+            postSummary(task, true);
+            return null;
+        }
+        task.setStage(AiWorkflowStageEnum.TESTING.name());
+        saveTask(task);
+        return task;
+    }
+
+    /**
+     * 测试阶段：让测试工程师看实际代码改动、补JUnit用例并真跑起来。
+     *
+     * 这一步失败不算整个任务失败——代码已经编译通过并推送了，
+     * 测试没写好只是少了一层保障，不该把前面的成果一起判死
+     */
+    private AiWorkflowTaskDto runTesting(AiWorkflowTaskDto task) {
+        AiAgentDefinition agent = aiAgentRegistry.getById(testingAgentId);
+        CoderTools tools = new CoderTools(coderWorkspace, null);
+
+        String systemPrompt = personaOf(agent)
+                + "\n你现在在一条需求流水线上工作，负责【测试验证】这一环。"
+                + "程序员刚改完代码并推到了分支，你要做的是："
+                + "先用 searchCode 和 readFile 看清楚这次实际改了什么（看代码，不要只看方案）；"
+                + "然后针对改动写JUnit测试，放在 easychat-java/src/test/java/ 下对应的包里；"
+                + "写完调用 runTests 跑起来，不通过就修，直到通过。"
+                + "重要约束：只测这次改动相关的逻辑，不要给整个项目补测试；"
+                + "优先测不依赖外部环境的纯逻辑，需要数据库、Redis或Spring容器的地方用Mockito打桩，"
+                + "不要写必须连上真实MySQL/Redis才能跑的测试——测试环境里没有这些。"
+                + "最后用一段话说明：你测了哪些场景、结果如何、还有什么风险没覆盖到。"
+                + NO_MENTION_RULE;
+
+        String userPrompt = "【原始需求】\n" + task.getRequirement() + "\n\n"
+                + "【技术方案】\n" + task.getTechPlan() + "\n\n"
+                + "【这次代码改动的文件】\n"
+                + (StringTools.isEmpty(task.getCodeDiffStat()) ? "（未取到改动列表，请自己搜索定位）"
+                        : task.getCodeDiffStat()) + "\n\n"
+                + "请补充测试并验证。";
+
+        String output = callAgent(agent, task, systemPrompt, userPrompt, tools, coderTimeoutSeconds);
+        boolean testsOk = false;
+        try {
+            CoderWorkspace.ExecResult result = coderWorkspace.runTests();
+            testsOk = result.success();
+            if (!testsOk) {
+                logger.warn("测试未通过, taskId:{}, 输出:\n{}", task.getTaskId(), result.output);
+            }
+        } catch (Exception e) {
+            logger.error("运行测试失败, taskId:{}", task.getTaskId(), e);
+        }
+        task.setTestsPassed(testsOk);
+
+        //测试文件也要提交上去，否则白写了
+        try {
+            if (coderWorkspace.hasChanges()) {
+                coderWorkspace.commitAndPush(task.getCodeBranch(),
+                        "test: 为「" + task.getRequirement() + "」补充单元测试\n\n由EasyChat需求流水线自动生成");
+            }
+        } catch (Exception e) {
+            logger.error("推送测试代码失败, taskId:{}", task.getTaskId(), e);
+        }
+
         task.setStage(AiWorkflowStageEnum.DONE.name());
         saveTask(task);
         postSummary(task, true);
@@ -597,10 +667,19 @@ public class AiWorkflowEngine {
             sb.append("。");
             if (Boolean.TRUE.equals(task.getCodePushed())) {
                 sb.append("代码已编译通过并推送到分支 ").append(task.getCodeBranch()).append("。");
+                if (Boolean.TRUE.equals(task.getTestsPassed())) {
+                    sb.append("单元测试已补充并全部通过。");
+                } else if (task.getTestsPassed() != null) {
+                    sb.append("但单元测试没能全部跑通，合并前请自己确认一下。");
+                }
                 if (!StringTools.isEmpty(task.getCodeDiffStat())) {
-                    sb.append("改动概览：\n").append(task.getCodeDiffStat());
+                    sb.append("\n改动概览：\n").append(task.getCodeDiffStat());
                 }
                 sb.append("\n请到GitHub上看diff，确认无误再合并。");
+            } else if (!coderWorkspace.isEnabled()) {
+                //之前这里只说"详细内容看上面几条发言"，用户会以为流程漏了写代码那一步
+                sb.append("流程到方案评审为止——编码环节还没启用（ai.coder.enabled=false）。");
+                sb.append("想让它接着把代码写了，参考README打开这个开关并配好独立工作区。");
             } else {
                 sb.append("详细内容看上面几条发言。");
             }

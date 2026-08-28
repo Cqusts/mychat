@@ -81,6 +81,7 @@ ai:
       design: "Uagentarch"
       review: "Uagentrv"
       coding: "Uagentdev"
+      testing: "Uagentqa"
 
   # -------------------- 程序员助手：真改代码 --------------------
   # 这是整条流水线里唯一会写文件、执行命令、推git的环节，默认关闭，确认理解风险后再打开。

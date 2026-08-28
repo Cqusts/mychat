@@ -86,6 +86,11 @@ public class AiWorkflowTaskDto implements Serializable {
      */
     private Boolean codePushed;
 
+    /**
+     * 单元测试是否通过
+     */
+    private Boolean testsPassed;
+
     private Long createTime;
 
     public AiWorkflowTaskDto() {
@@ -219,6 +224,14 @@ public class AiWorkflowTaskDto implements Serializable {
 
     public void setCodePushed(Boolean codePushed) {
         this.codePushed = codePushed;
+    }
+
+    public Boolean getTestsPassed() {
+        return testsPassed;
+    }
+
+    public void setTestsPassed(Boolean testsPassed) {
+        this.testsPassed = testsPassed;
     }
 
     public Long getCreateTime() {

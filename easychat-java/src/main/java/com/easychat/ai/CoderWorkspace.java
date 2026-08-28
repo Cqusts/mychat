@@ -166,6 +166,16 @@ public class CoderWorkspace {
     }
 
     /**
+     * 跑单元测试。
+     * 显式传 -DskipTests=false：项目的pom里把skipTests设成了true，
+     * 不覆盖的话测试会被直接跳过，跑出来永远是"成功"
+     */
+    public ExecResult runTests() throws Exception {
+        File backend = resolveSafe("easychat-java").toFile();
+        return exec(backend, Arrays.asList(mavenCommand, "-B", "-DskipTests=false", "test"));
+    }
+
+    /**
      * 有没有实际改动
      */
     public boolean hasChanges() throws Exception {

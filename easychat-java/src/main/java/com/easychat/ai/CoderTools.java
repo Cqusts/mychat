@@ -155,6 +155,23 @@ public class CoderTools {
         }
     }
 
+    @Tool(description = "运行项目的单元测试，返回测试结果。写完测试用例后调用它验证；测试不通过就根据报错修，直到通过为止。")
+    public String runTests() {
+        notify("正在运行单元测试…");
+        try {
+            CoderWorkspace.ExecResult result = workspace.runTests();
+            if (result.success()) {
+                notify("测试通过");
+                return "测试全部通过。\n" + result.output;
+            }
+            notify("测试未通过，正在修复…");
+            return "测试未通过，输出如下：\n" + result.output;
+        } catch (Exception e) {
+            logger.error("runTests执行失败", e);
+            return "测试执行失败：" + e.getMessage();
+        }
+    }
+
     private String shortName(String path) {
         if (path == null) {
             return "";

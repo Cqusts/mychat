@@ -12,6 +12,7 @@ public enum AiWorkflowStageEnum {
     DESIGN("方案设计"),
     REVIEW("方案评审"),
     CODING("编码实现"),
+    TESTING("测试验证"),
     DONE("已完成"),
     FAILED("已终止");
 
