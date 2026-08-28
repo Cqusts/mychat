@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <configuration scan="true" scanPeriod="10 minutes">
+    <!-- 控制台输出。
+         原来这里用的是不带charset的layout，会退化成JVM默认字符集，
+         在中文Windows控制台(GBK)下看到的就是一片乱码，日志根本没法读。
+         默认按UTF-8输出，配合启动前的 chcp 65001；
+         如果不想改控制台代码页，用 -DLOG_CONSOLE_CHARSET=GBK 启动即可。 -->
     <appender name="stdot" class="ch.qos.logback.core.ConsoleAppender">
-        <layout class="ch.qos.logback.classic.PatternLayout">
+        <encoder>
+            <charset>${LOG_CONSOLE_CHARSET:-UTF-8}</charset>
             <pattern>%d{yyyy-MM-dd HH:mm:ss,GMT+8} [%p][%c][%M][%L]-> %m%n</pattern>
-        </layout>
+        </encoder>
     </appender>
 
     <springProperty scope="context" name="log.path" source="project.folder"/>

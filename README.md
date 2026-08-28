@@ -261,8 +261,17 @@ export EASYCHAT_AI_API_KEY="sk-xxxx"
 ```bash
 cd easychat-java
 mvn clean package -DskipTests
+
+# Windows：先切UTF-8代码页，否则控制台里的中文日志是乱码
+chcp 65001
+java -jar target/easychat-1.0.jar
+
+# Linux / macOS
 java -jar target/easychat-1.0.jar
 ```
+
+> 不想改代码页的话，用 `java -DLOG_CONSOLE_CHARSET=GBK -jar target/easychat-1.0.jar` 也行。
+> 日志文件 `{project.folder}/logs/easychat.log` 始终是 UTF-8，任何情况下都可以直接看。
 
 启动成功后：
 
