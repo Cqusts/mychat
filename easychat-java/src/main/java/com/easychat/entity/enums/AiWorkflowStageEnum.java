@@ -11,6 +11,7 @@ public enum AiWorkflowStageEnum {
     REQUIREMENT("需求分析"),
     DESIGN("方案设计"),
     REVIEW("方案评审"),
+    CODING("编码实现"),
     DONE("已完成"),
     FAILED("已终止");
 

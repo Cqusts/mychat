@@ -39,4 +39,18 @@ public interface AiChatService {
      * @param callback     片段回调
      */
     void chatStreamOnce(String systemPrompt, String userPrompt, AiStreamCallback callback);
+
+    /**
+     * 带工具的一次性流式对话，用于需要多轮工具调用的Agent场景（比如写代码）。
+     *
+     * 和chatStreamOnce的区别：
+     *   - 可以挂任意工具对象，由调用方决定给模型什么能力
+     *   - 超时单独指定：写代码要反复搜索、读文件、编译，
+     *     和聊天用同一个120秒的超时根本不够
+     *
+     * @param tools          挂给模型的工具对象，方法上带@Tool注解；传null表示不给工具
+     * @param timeoutSeconds 本次调用的整体超时
+     */
+    void chatStreamAgent(String systemPrompt, String userPrompt, Object tools,
+                         Long timeoutSeconds, AiStreamCallback callback);
 }

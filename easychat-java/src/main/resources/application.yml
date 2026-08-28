@@ -80,6 +80,34 @@ ai:
       requirement: "Uagentpm"
       design: "Uagentarch"
       review: "Uagentrv"
+      coding: "Uagentdev"
+
+  # -------------------- 程序员助手：真改代码 --------------------
+  # 这是整条流水线里唯一会写文件、执行命令、推git的环节，默认关闭，确认理解风险后再打开。
+  # 安全边界（都在 CoderWorkspace 里）：
+  #   - 独立工作区：另外克隆一份，不碰你正在用的工作树
+  #   - 路径校验：所有文件操作解析后必须仍在工作区内，挡掉 ../ 和绝对路径
+  #   - 命令白名单：只跑写死的 git/mvn 子命令，参数以数组传给 ProcessBuilder，不拼 shell
+  #   - 分支白名单：只能推 ai/ 前缀的分支，碰不到 main 和 Aibot
+  #   - 推送时机由引擎决定：模型只有改文件和编译的工具，没有提交推送的工具
+  coder:
+    enabled: false
+    # AI 专用的工作区目录，会在这里放一份独立克隆。不要指向你自己的仓库目录
+    workspace: "D:/easychat-ai-workspace"
+    # 从这个本地仓库读 origin 地址（也可以直接配 git-url 覆盖）
+    source-repo: "D:/JavaProject/mychat"
+    git-url: ""
+    # 从哪个分支拉出来改
+    base-branch: "Aibot"
+    # mvn / git 不在 PATH 里时填绝对路径
+    maven-command: "mvn"
+    git-command: "git"
+    # 单条命令的超时，mvn compile 首次要下依赖会比较久
+    command-timeout-seconds: 600
+    # 编码这一轮模型的整体超时：要反复搜索、读文件、编译，比聊天久得多
+    agent-timeout-seconds: 900
+    # 引擎最终编译不过时，再给模型几轮带着报错去修的机会
+    max-fix-rounds: 1
 
   # AI助手列表
   # 每个助手都是一个真实存在的用户（启动时自动写入 user_info 并生成默认头像），

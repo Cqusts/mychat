@@ -71,6 +71,21 @@ public class AiWorkflowTaskDto implements Serializable {
      */
     private Integer retryCount;
 
+    /**
+     * 代码推送到的分支，只会是 ai/ 前缀
+     */
+    private String codeBranch;
+
+    /**
+     * 改动概览（git diff --stat）
+     */
+    private String codeDiffStat;
+
+    /**
+     * 代码是否已经推送成功
+     */
+    private Boolean codePushed;
+
     private Long createTime;
 
     public AiWorkflowTaskDto() {
@@ -180,6 +195,30 @@ public class AiWorkflowTaskDto implements Serializable {
 
     public void setRetryCount(Integer retryCount) {
         this.retryCount = retryCount;
+    }
+
+    public String getCodeBranch() {
+        return codeBranch;
+    }
+
+    public void setCodeBranch(String codeBranch) {
+        this.codeBranch = codeBranch;
+    }
+
+    public String getCodeDiffStat() {
+        return codeDiffStat;
+    }
+
+    public void setCodeDiffStat(String codeDiffStat) {
+        this.codeDiffStat = codeDiffStat;
+    }
+
+    public Boolean getCodePushed() {
+        return codePushed;
+    }
+
+    public void setCodePushed(Boolean codePushed) {
+        this.codePushed = codePushed;
     }
 
     public Long getCreateTime() {

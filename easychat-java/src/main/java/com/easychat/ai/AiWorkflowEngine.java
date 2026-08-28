@@ -72,6 +72,21 @@ public class AiWorkflowEngine {
     @Value("${ai.workflow.agents.review:}")
     private String reviewAgentId;
 
+    @Value("${ai.workflow.agents.coding:}")
+    private String codingAgentId;
+
+    /**
+     * 写代码要反复搜索、读文件、编译，和聊天用同一个超时根本不够
+     */
+    @Value("${ai.coder.agent-timeout-seconds:900}")
+    private Long coderTimeoutSeconds;
+
+    /**
+     * 引擎最终编译不过时，再给模型几轮带着报错去修的机会
+     */
+    @Value("${ai.coder.max-fix-rounds:1}")
+    private Integer maxFixRounds;
+
     /**
      * 方案被打回后最多重做几次，超了就终止，避免评审和架构师无限拉锯
      */
@@ -92,6 +107,9 @@ public class AiWorkflowEngine {
 
     @Resource
     private AiStreamPusher aiStreamPusher;
+
+    @Resource
+    private CoderWorkspace coderWorkspace;
 
     @Resource(name = "aiTaskExecutor")
     private ThreadPoolTaskExecutor aiTaskExecutor;
@@ -214,6 +232,9 @@ public class AiWorkflowEngine {
                 case REVIEW:
                     task = runReview(task);
                     break;
+                case CODING:
+                    task = runCoding(task);
+                    break;
                 default:
                     //DONE / FAILED
                     return;
@@ -328,10 +349,16 @@ public class AiWorkflowEngine {
         task.setReviewPassed(passed);
 
         if (passed) {
-            task.setStage(AiWorkflowStageEnum.DONE.name());
+            //编码环节没启用（或没配好）就到此为止，前三步本身已经是完整的产出
+            if (!coderWorkspace.isEnabled() || aiAgentRegistry.getById(codingAgentId) == null) {
+                task.setStage(AiWorkflowStageEnum.DONE.name());
+                saveTask(task);
+                postSummary(task, true);
+                return null;
+            }
+            task.setStage(AiWorkflowStageEnum.CODING.name());
             saveTask(task);
-            postSummary(task, true);
-            return null;
+            return task;
         }
         //打回：回到方案设计重做，超过次数就终止
         if (task.getRetryCount() >= maxReviewRetry) {
@@ -346,6 +373,130 @@ public class AiWorkflowEngine {
         saveTask(task);
         logger.info("方案被打回，第{}次返工, taskId:{}", task.getRetryCount(), task.getTaskId());
         return task;
+    }
+
+    /**
+     * 编码阶段：让程序员助手在独立工作区里真改代码，编译通过后推到 ai/ 分支。
+     *
+     * 和前三个阶段最大的不同是这里会落到磁盘和git上，所以：
+     *   - 提交推送由引擎决定，模型没有这个工具，它只能改文件和编译
+     *   - 编译不通过绝不推送
+     */
+    private AiWorkflowTaskDto runCoding(AiWorkflowTaskDto task) {
+        AiAgentDefinition agent = aiAgentRegistry.getById(codingAgentId);
+        String branch = "ai/task-" + task.getTaskId().substring(0, 8);
+        task.setCodeBranch(branch);
+
+        try {
+            coderWorkspace.prepareBranch(branch);
+        } catch (Exception e) {
+            logger.error("准备代码工作区失败, taskId:{}", task.getTaskId(), e);
+            return failTask(task, "准备代码工作区失败：" + e.getMessage());
+        }
+
+        TokenUserInfoDto agentToken = tokenOf(codingAgentId);
+        CoderTools tools = new CoderTools(coderWorkspace, null);
+
+        String systemPrompt = personaOf(agent)
+                + "\n你现在在一条需求流水线上工作，负责【编码实现】这一环，要真的改代码。"
+                + "工作方式：先用 searchCode 定位相关文件，用 readFile 看清楚现有实现，"
+                + "再用 replaceInFile 修改或 createFile 新建，最后必须调用 compile 验证。"
+                + "编译不通过就根据报错继续修，直到通过为止。"
+                + "注意几点：改动要小而准，只做方案要求的事，不要顺手重构无关代码；"
+                + "replaceInFile 的 oldText 必须和文件里一字不差且唯一；"
+                + "不要编造项目里不存在的类或方法，拿不准就先 readFile 确认。"
+                + "全部改完并编译通过后，用一段话说明你改了哪些文件、每个文件做了什么。"
+                + NO_MENTION_RULE;
+
+        String userPrompt = "【原始需求】\n" + task.getRequirement() + "\n\n"
+                + "【需求分析】\n" + task.getRequirementDoc() + "\n\n"
+                + "【评审通过的技术方案】\n" + task.getTechPlan() + "\n\n"
+                + "【评审意见，实现时要一并满足】\n" + task.getReviewResult() + "\n\n"
+                + "请按方案改代码。";
+
+        String output = callAgent(agent, task, systemPrompt, userPrompt, tools, coderTimeoutSeconds);
+        if (output == null) {
+            return failTask(task, "编码阶段调用失败");
+        }
+
+        //模型可能一顿分析但一个文件都没动，这种情况必须识别出来，不能当成功
+        try {
+            if (!coderWorkspace.hasChanges()) {
+                task.setStage(AiWorkflowStageEnum.FAILED.name());
+                task.setCodePushed(false);
+                saveTask(task);
+                postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
+                        atRequester(task) + "编码环节没有产生任何代码改动，流程停在这里。"
+                                + "通常是方案还不够具体，或者助手没找到该改的文件。");
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("检查工作区改动失败, taskId:{}", task.getTaskId(), e);
+        }
+
+        //引擎自己再编译一次把关：模型有可能说"编译通过"但其实没跑过compile
+        if (!verifyCompile(agent, task, tools)) {
+            task.setStage(AiWorkflowStageEnum.FAILED.name());
+            task.setCodePushed(false);
+            saveTask(task);
+            postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
+                    atRequester(task) + "代码改完了但编译不通过，已经放弃推送，避免把编不过的代码推上去。"
+                            + "详细报错见服务端日志。");
+            return null;
+        }
+
+        try {
+            task.setCodeDiffStat(coderWorkspace.diffStat());
+            coderWorkspace.commitAndPush(branch,
+                    "feat: " + task.getRequirement() + "\n\n由EasyChat需求流水线自动生成，taskId:" + task.getTaskId());
+            task.setCodePushed(true);
+        } catch (Exception e) {
+            logger.error("提交推送失败, taskId:{}, branch:{}", task.getTaskId(), branch, e);
+            task.setCodePushed(false);
+            saveTask(task);
+            postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
+                    atRequester(task) + "代码写完也编译通过了，但推送分支失败：" + e.getMessage());
+            return null;
+        }
+
+        task.setStage(AiWorkflowStageEnum.DONE.name());
+        saveTask(task);
+        postSummary(task, true);
+        return null;
+    }
+
+    /**
+     * 引擎侧的编译把关。不通过就把报错回传给模型再修几轮
+     */
+    private boolean verifyCompile(AiAgentDefinition agent, AiWorkflowTaskDto task, CoderTools tools) {
+        for (int round = 0; round <= maxFixRounds; round++) {
+            CoderWorkspace.ExecResult result;
+            try {
+                result = coderWorkspace.compile();
+            } catch (Exception e) {
+                logger.error("编译执行失败, taskId:{}", task.getTaskId(), e);
+                return false;
+            }
+            if (result.success()) {
+                return true;
+            }
+            if (round == maxFixRounds) {
+                logger.error("编译始终不通过，放弃推送, taskId:{}, 报错:\n{}", task.getTaskId(), result.output);
+                return false;
+            }
+            logger.info("编译不通过，让程序员助手再修一轮, taskId:{}, 第{}轮", task.getTaskId(), round + 1);
+            String fixPrompt = "你刚才的改动编译不通过，报错如下：\n" + result.output
+                    + "\n\n请定位问题并修好，改完再调用 compile 确认。";
+            callAgent(agent, task, personaOf(agent)
+                    + "\n你在修复自己刚才改出来的编译错误。只改导致报错的地方，不要顺手改别的。"
+                    + NO_MENTION_RULE, fixPrompt, tools, coderTimeoutSeconds);
+        }
+        return false;
+    }
+
+    private String atRequester(AiWorkflowTaskDto task) {
+        return StringTools.isEmpty(task.getRequesterNickName())
+                ? "" : "@" + task.getRequesterNickName() + " ";
     }
 
     /**
@@ -371,6 +522,11 @@ public class AiWorkflowEngine {
      */
     private String callAgent(AiAgentDefinition agent, AiWorkflowTaskDto task,
                              String systemPrompt, String userPrompt) {
+        return callAgent(agent, task, systemPrompt, userPrompt, null, null);
+    }
+
+    private String callAgent(AiAgentDefinition agent, AiWorkflowTaskDto task, String systemPrompt,
+                             String userPrompt, Object tools, Long timeoutSeconds) {
         if (agent == null) {
             return null;
         }
@@ -379,7 +535,7 @@ public class AiWorkflowEngine {
         AtomicInteger index = new AtomicInteger(0);
         String[] holder = new String[1];
 
-        aiChatService.chatStreamOnce(systemPrompt, userPrompt, new AiStreamCallback() {
+        AiStreamCallback callback = new AiStreamCallback() {
             @Override
             public void onChunk(String delta) {
                 aiStreamPusher.push(agentToken, task.getGroupId(), task.getSessionId(),
@@ -404,7 +560,16 @@ public class AiWorkflowEngine {
                         task.getTaskId(), agent.getName(), errorMessage);
                 holder[0] = null;
             }
-        });
+        };
+        if (tools == null) {
+            aiChatService.chatStreamOnce(systemPrompt, userPrompt, callback);
+        } else {
+            //工具里的进度提示要能推到群里，所以callback建好之后再塞给CoderTools
+            if (tools instanceof CoderTools) {
+                ((CoderTools) tools).bindCallback(callback);
+            }
+            aiChatService.chatStreamAgent(systemPrompt, userPrompt, tools, timeoutSeconds, callback);
+        }
 
         if (holder[0] != null) {
             postAgentMessage(agentToken, task.getGroupId(), holder[0]);
@@ -424,9 +589,22 @@ public class AiWorkflowEngine {
                 ? "" : "@" + task.getRequesterNickName() + " ";
         String summary;
         if (success) {
-            summary = at + "需求「" + task.getRequirement() + "」已经走完需求分析和方案评审，方案评审通过。"
-                    + (task.getRetryCount() > 0 ? "（中途返工了" + task.getRetryCount() + "次）" : "")
-                    + "详细内容看上面几条发言。";
+            StringBuilder sb = new StringBuilder(at);
+            sb.append("需求「").append(task.getRequirement()).append("」已完成。方案评审通过");
+            if (task.getRetryCount() > 0) {
+                sb.append("（中途返工").append(task.getRetryCount()).append("次）");
+            }
+            sb.append("。");
+            if (Boolean.TRUE.equals(task.getCodePushed())) {
+                sb.append("代码已编译通过并推送到分支 ").append(task.getCodeBranch()).append("。");
+                if (!StringTools.isEmpty(task.getCodeDiffStat())) {
+                    sb.append("改动概览：\n").append(task.getCodeDiffStat());
+                }
+                sb.append("\n请到GitHub上看diff，确认无误再合并。");
+            } else {
+                sb.append("详细内容看上面几条发言。");
+            }
+            summary = sb.toString();
         } else {
             //retryCount是返工次数，评审实际跑了retryCount+1轮
             summary = at + "需求「" + task.getRequirement() + "」的方案连续" + (task.getRetryCount() + 1)

@@ -81,8 +81,9 @@ public class AiChatServiceImpl implements AiChatService {
     public String chat(String agentId, String systemPrompt, String userId, String message) {
         try {
             Prompt prompt = new Prompt(buildMessages(agentId, systemPrompt, userId, message));
-            //非流式场景没有回调，工具调用状态无处可推，传null
-            String reply = withTools(chatClient.prompt(prompt), userId, null).call().content();
+            //非流式场景没有回调，工具调用状态无处可推，回调传null
+            String reply = withTools(chatClient.prompt(prompt),
+                    aiToolFactory.create(userId, null)).call().content();
             aiChatMemory.append(userId, agentId, message, reply);
             return reply;
         } catch (Exception e) {
@@ -96,7 +97,8 @@ public class AiChatServiceImpl implements AiChatService {
                            AiStreamCallback callback) {
         //单聊：带持久化记忆，并把业务工具开放给模型。
         //工具以提问者的身份执行——单聊场景下"查谁的数据"是明确的
-        doStream(buildMessages(agentId, systemPrompt, userId, message), userId, userId, agentId, message, callback);
+        doStream(buildMessages(agentId, systemPrompt, userId, message),
+                aiToolFactory.create(userId, callback), null, userId, agentId, message, callback);
     }
 
     @Override
@@ -104,29 +106,38 @@ public class AiChatServiceImpl implements AiChatService {
         List<Message> messages = List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt));
         //群聊：上下文由调用方给全，不写记忆；
         //也暂不开放工具——工具是按用户维度鉴权的，群里由谁授权尚未定义，先不给
-        doStream(messages, null, null, null, null, callback);
+        doStream(messages, null, null, null, null, null, callback);
+    }
+
+    @Override
+    public void chatStreamAgent(String systemPrompt, String userPrompt, Object tools,
+                                Long timeoutSeconds, AiStreamCallback callback) {
+        List<Message> messages = List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt));
+        //Agent场景：工具由调用方给，不写记忆（上下文全在userPrompt里）
+        doStream(messages, tools, timeoutSeconds, null, null, null, callback);
     }
 
     /**
      * 流式对话的公共实现。
      *
      * @param messages          送给模型的完整消息列表
-     * @param toolUserId        以谁的身份提供业务工具，null表示本次不开放工具
+     * @param tools             挂给模型的工具对象，null表示本次不开放工具
+     * @param timeoutSeconds    本次调用的整体超时
      * @param memoryUserId      把本轮对话写入谁的记忆，null表示不写记忆
      * @param memoryAgentId     记忆归属的助手
      * @param memoryUserMessage 写入记忆时记录的用户提问原文
      */
-    private void doStream(List<Message> messages, String toolUserId, String memoryUserId, String memoryAgentId,
-                          String memoryUserMessage, AiStreamCallback callback) {
+    private void doStream(List<Message> messages, Object tools, Long timeout, String memoryUserId,
+                          String memoryAgentId, String memoryUserMessage, AiStreamCallback callback) {
         //完整回复内容
         StringBuilder full = new StringBuilder();
         //尚未推送的缓冲区
         StringBuilder pending = new StringBuilder();
         try {
             Prompt prompt = new Prompt(messages);
-            Flux<String> flux = withTools(chatClient.prompt(prompt), toolUserId, callback)
+            Flux<String> flux = withTools(chatClient.prompt(prompt), tools)
                     .stream().content()
-                    .timeout(Duration.ofSeconds(timeoutSeconds));
+                    .timeout(Duration.ofSeconds(timeout == null ? timeoutSeconds : timeout));
 
             long lastFlushAt = System.currentTimeMillis();
             //toIterable会阻塞直到流结束，本方法约定由调用方放到线程池中执行
@@ -205,12 +216,11 @@ public class AiChatServiceImpl implements AiChatService {
      * 工具实例是每次新建的，里面绑好了当前用户身份——
      * userId不作为工具参数暴露给模型，模型没法伪造身份去读别人的数据。
      */
-    private ChatClient.ChatClientRequestSpec withTools(ChatClient.ChatClientRequestSpec spec,
-                                                       String userId, AiStreamCallback callback) {
-        if (!Boolean.TRUE.equals(toolsEnabled) || StringTools.isEmpty(userId)) {
+    private ChatClient.ChatClientRequestSpec withTools(ChatClient.ChatClientRequestSpec spec, Object tools) {
+        if (!Boolean.TRUE.equals(toolsEnabled) || tools == null) {
             return spec;
         }
-        return spec.tools(aiToolFactory.create(userId, callback));
+        return spec.tools(tools);
     }
 
     /**
