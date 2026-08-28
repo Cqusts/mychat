@@ -1,6 +1,8 @@
 package com.easychat.entity.dto;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 一次需求流水线任务的完整状态。
@@ -58,6 +60,13 @@ public class AiWorkflowTaskDto implements Serializable {
     private Boolean reviewPassed;
 
     /**
+     * 历次评审意见。
+     * 不记的话每轮评审都是从零开始，既不知道自己上轮说过什么、也判断不了这版有没有改好——
+     * 实测出现过"第2轮要求加is_permanent字段、第3轮又说这个字段冗余要删掉"的自我矛盾
+     */
+    private List<String> reviewHistory;
+
+    /**
      * 方案被打回重做的次数
      */
     private Integer retryCount;
@@ -66,6 +75,7 @@ public class AiWorkflowTaskDto implements Serializable {
 
     public AiWorkflowTaskDto() {
         this.retryCount = 0;
+        this.reviewHistory = new ArrayList<>();
     }
 
     public String getTaskId() {
@@ -146,6 +156,14 @@ public class AiWorkflowTaskDto implements Serializable {
 
     public void setReviewResult(String reviewResult) {
         this.reviewResult = reviewResult;
+    }
+
+    public List<String> getReviewHistory() {
+        return reviewHistory;
+    }
+
+    public void setReviewHistory(List<String> reviewHistory) {
+        this.reviewHistory = reviewHistory;
     }
 
     public Boolean getReviewPassed() {

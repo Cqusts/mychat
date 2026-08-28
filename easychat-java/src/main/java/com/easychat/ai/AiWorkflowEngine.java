@@ -275,25 +275,54 @@ public class AiWorkflowEngine {
 
     private AiWorkflowTaskDto runReview(AiWorkflowTaskDto task) {
         AiAgentDefinition agent = aiAgentRegistry.getById(reviewAgentId);
-        String systemPrompt = personaOf(agent)
-                + "\n你现在在一条需求流水线上工作，负责【方案评审】这一环。"
-                + "检查方案：技术上可行吗、有没有过度设计、漏了哪些场景、会不会和现有代码冲突。"
-                + "你的回复必须以" + REVIEW_PASS_MARK + "或" + REVIEW_REJECT_MARK + "开头，"
-                + "这是系统判断流程走向的标记：以" + REVIEW_PASS_MARK + "开头表示方案可以进入开发，"
-                + "以" + REVIEW_REJECT_MARK + "开头表示必须返工，并明确写出要改哪里。"
-                + "不要和稀泥，方案有硬伤就打回。控制在200字以内。"
-                + NO_MENTION_RULE;
+        int round = task.getRetryCount() + 1;
+        boolean firstRound = task.getReviewHistory() == null || task.getReviewHistory().isEmpty();
 
-        String userPrompt = "【原始需求】\n" + task.getRequirement() + "\n\n"
-                + "【需求分析】\n" + task.getRequirementDoc() + "\n\n"
-                + "【待评审的技术方案】\n" + task.getTechPlan() + "\n\n"
-                + "请给出评审结论。";
+        StringBuilder systemPrompt = new StringBuilder(personaOf(agent));
+        systemPrompt.append("\n你现在在一条需求流水线上工作，负责【方案评审】这一环。");
+        systemPrompt.append("检查方案：技术上可行吗、有没有过度设计、漏了哪些场景、会不会和现有代码冲突。");
+        systemPrompt.append("你的回复必须以").append(REVIEW_PASS_MARK).append("或").append(REVIEW_REJECT_MARK)
+                .append("开头，这是系统判断流程走向的标记：以").append(REVIEW_PASS_MARK)
+                .append("开头表示方案可以进入开发，以").append(REVIEW_REJECT_MARK)
+                .append("开头表示必须返工，并明确写出要改哪里。");
+        if (!firstRound) {
+            //无界的评审天然总能挑出新毛病，不给收敛条件就永远通不过。
+            //实测三轮全打回，而且第3轮把第2轮自己要求加的字段当成缺陷打了回去
+            systemPrompt.append("这已经是第").append(round).append("轮评审了。");
+            systemPrompt.append("你的判断重点是：前几轮你指出的问题，这一版有没有解决。");
+            systemPrompt.append("只要前面的问题都改到位了就应该通过——");
+            systemPrompt.append("即使你还能想到新的优化点，只要它不会导致功能不可用、数据出错或安全问题，");
+            systemPrompt.append("就写成“后续建议”并给出").append(REVIEW_PASS_MARK).append("，不要再打回。");
+            systemPrompt.append("另外不要推翻自己前几轮的意见，那会让方案来回改。");
+            systemPrompt.append("评审的目的是把关，不是无限迭代。");
+        }
+        systemPrompt.append("不要和稀泥，方案有真正的硬伤就打回。控制在250字以内。");
+        systemPrompt.append(NO_MENTION_RULE);
 
-        String output = callAgent(agent, task, systemPrompt, userPrompt);
+        StringBuilder userPrompt = new StringBuilder();
+        userPrompt.append("【原始需求】\n").append(task.getRequirement()).append("\n\n");
+        userPrompt.append("【需求分析】\n").append(task.getRequirementDoc()).append("\n\n");
+        if (!firstRound) {
+            userPrompt.append("【你前几轮的评审意见】\n");
+            List<String> history = task.getReviewHistory();
+            for (int i = 0; i < history.size(); i++) {
+                userPrompt.append("第").append(i + 1).append("轮：").append(history.get(i)).append("\n");
+            }
+            userPrompt.append("\n");
+        }
+        userPrompt.append("【待评审的技术方案】\n").append(task.getTechPlan()).append("\n\n");
+        userPrompt.append(firstRound ? "请给出评审结论。"
+                : "请判断上面的问题是否都已解决，并给出评审结论。");
+
+        String output = callAgent(agent, task, systemPrompt.toString(), userPrompt.toString());
         if (output == null) {
             return failTask(task, "方案评审阶段调用失败");
         }
         task.setReviewResult(output);
+        if (task.getReviewHistory() == null) {
+            task.setReviewHistory(new ArrayList<>());
+        }
+        task.getReviewHistory().add(output);
 
         boolean passed = parseReviewVerdict(output);
         task.setReviewPassed(passed);
@@ -399,8 +428,9 @@ public class AiWorkflowEngine {
                     + (task.getRetryCount() > 0 ? "（中途返工了" + task.getRetryCount() + "次）" : "")
                     + "详细内容看上面几条发言。";
         } else {
-            summary = at + "需求「" + task.getRequirement() + "」的方案连续" + task.getRetryCount()
-                    + "次没通过评审，流程先停在这里。建议你看看评审意见，把需求或约束再明确一下重新提。";
+            //retryCount是返工次数，评审实际跑了retryCount+1轮
+            summary = at + "需求「" + task.getRequirement() + "」的方案连续" + (task.getRetryCount() + 1)
+                    + "轮没通过评审，流程先停在这里。建议你看看评审意见，把需求或约束再明确一下重新提。";
         }
         postAgentMessage(entryAgent, task.getGroupId(), summary);
     }

@@ -71,6 +71,14 @@ public class ChatMessageServiceImpl implements ChatMessageService {
      */
     private static final int MAX_LAST_MESSAGE_LENGTH = 200;
 
+    /**
+     * 编排流程产生的消息用这个深度，表示"不参与@解析"。
+     * 之前借用maxAgentDepth当哨兵，功能上没错，但日志里会打出
+     * "群助手接话已达最大轮数8，不再触发"——流程明明是正常收尾的，
+     * 这行却像是链条被上限砍断了，排查时非常误导
+     */
+    private static final int WORKFLOW_NO_DISPATCH_DEPTH = Integer.MAX_VALUE;
+
     @Resource
     private ChatMessageMapper<ChatMessage, ChatMessageQuery> chatMessageMapper;
 
@@ -307,6 +315,10 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         if (content == null || content.indexOf('@') < 0) {
             return;
         }
+        if (agentDepth == WORKFLOW_NO_DISPATCH_DEPTH) {
+            //编排流程的消息：下一棒由状态机决定，这里不解析@，也不需要告警
+            return;
+        }
         if (agentDepth >= maxAgentDepth) {
             logger.info("群助手接话已达最大轮数{}，不再触发, groupId:{}", maxAgentDepth, groupId);
             return;
@@ -532,9 +544,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     @Override
     public MessageSendDto saveWorkflowMessage(ChatMessage chatMessage, TokenUserInfoDto agentToken) {
-        //深度直接给到上限：dispatchGroupAgentReplies里会因为达到上限提前返回，
-        //从而不解析这条消息里的@。复用已有的深度判断，不用再加一个开关
-        return saveMessage(chatMessage, agentToken, maxAgentDepth);
+        return saveMessage(chatMessage, agentToken, WORKFLOW_NO_DISPATCH_DEPTH);
     }
 
     /**
