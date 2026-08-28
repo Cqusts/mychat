@@ -316,6 +316,10 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                     groupId, agentNames, content);
             return;
         }
+        //真人可以一次@多个助手（比如拉几个角色一起评审），
+        //但助手转交时只认第一个：否则每层扇出2个的话，8层就是几百次模型调用，
+        //额度会被指数级烧光。助手之间保持单线传递，链条长度就只受max-depth约束
+        boolean senderIsAgent = aiAgentRegistry.isAgent(sender.getUserId());
         for (AiAgentDefinition agent : mentioned) {
             //助手@到自己不触发，否则它会无限自问自答
             if (agent.getId().equals(sender.getUserId())) {
@@ -324,6 +328,13 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             logger.info("触发群助手回复, groupId:{}, agent:{}({}), 第{}轮",
                     groupId, agent.getName(), agent.getId(), agentDepth + 1);
             dispatchOneGroupAgent(agent, groupId, sessionId, groupAgentIds, agentDepth);
+            if (senderIsAgent) {
+                if (mentioned.size() > 1) {
+                    logger.info("发言者是助手，本条只转交给第一个被@的助手，忽略其余{}个",
+                            mentioned.size() - 1);
+                }
+                break;
+            }
         }
     }
 
