@@ -375,6 +375,20 @@ npm run build:linux   # Linux
 
 使用方式见 [benchmark/README.md](benchmark/README.md)。
 
+## 升级已有数据库
+
+如果你的 `easychat` 库是在引入 AI 功能之前建的，需要跑一次：
+
+```sql
+ALTER TABLE chat_message MODIFY COLUMN message_content TEXT COMMENT '消息内容';
+```
+
+原因：`message_content` 原本是 `varchar(500)`，这是给真人聊天设计的长度。AI 助手的
+发言经常几百字，加上换行会被转成 `<br>`（一个换行占 4 个字符），很容易超过 500，
+MySQL 严格模式下直接抛 `Data too long`，表现就是"群里凭空少了一条发言"。
+
+`chat_session.last_message` 不用改——它只是会话列表里的一行预览，代码里已经改成超长截断。
+
 ## 已知限制
 
 - **群聊助手暂不开放业务工具**。工具是按用户维度鉴权的（工具实例绑定 `userId`），群聊场景下"以谁的身份授权"这个语义尚未定义，因此有意留空。

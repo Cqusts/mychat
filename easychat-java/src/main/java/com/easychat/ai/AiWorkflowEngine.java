@@ -432,7 +432,20 @@ public class AiWorkflowEngine {
             message.setMessageType(MessageTypeEnum.CHAT.getType());
             chatMessageService.saveWorkflowMessage(message, agentToken);
         } catch (Exception e) {
-            logger.error("流水线消息落库失败, groupId:{}, agentId:{}", groupId, agentToken.getUserId(), e);
+            //以前这里只记日志，结果表现是"群里凭空少了一条发言"，但流程还在往下走，
+            //下一棒明明看过内容、用户却看不到，极难排查。现在同时在群里留一句可见的提示
+            logger.error("流水线消息落库失败, groupId:{}, agentId:{}, 内容长度:{}",
+                    groupId, agentToken.getUserId(), content == null ? 0 : content.length(), e);
+            try {
+                ChatMessage tip = new ChatMessage();
+                tip.setContactId(groupId);
+                tip.setMessageContent("（这条发言没能存下来，通常是内容超出了 chat_message.message_content 的长度限制，"
+                        + "详见服务端日志）");
+                tip.setMessageType(MessageTypeEnum.CHAT.getType());
+                chatMessageService.saveWorkflowMessage(tip, agentToken);
+            } catch (Exception ignore) {
+                logger.error("连兜底提示也没能发出去, groupId:{}", groupId, ignore);
+            }
         }
     }
 

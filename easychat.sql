@@ -42,7 +42,7 @@ CREATE TABLE `chat_message`  (
   `message_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '消息自增ID',
   `session_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '会话ID',
   `message_type` tinyint(1) NOT NULL COMMENT '消息类型',
-  `message_content` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '消息内容',
+  `message_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '消息内容',
   `send_user_id` varchar(12) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '发送人ID',
   `send_user_nick_name` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '发送人昵称',
   `send_time` bigint(20) NULL DEFAULT NULL COMMENT '发送时间',

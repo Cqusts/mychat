@@ -63,6 +63,14 @@ public class ChatMessageServiceImpl implements ChatMessageService {
      */
     private static final String ROBOT_BUSY_TIP = "助手当前有点忙，请稍后再问我一次～";
 
+    /**
+     * 会话列表里预览文案的最大长度。
+     * chat_session.last_message 是 varchar(500)，而AI助手的发言经常几百字，
+     * 群聊里存的还是"昵称：内容"，比正文更长——超了会直接抛Data too long。
+     * 这个字段本来就只是列表里的一行预览，截断才是语义正确的做法
+     */
+    private static final int MAX_LAST_MESSAGE_LENGTH = 200;
+
     @Resource
     private ChatMessageMapper<ChatMessage, ChatMessageQuery> chatMessageMapper;
 
@@ -259,9 +267,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             }
             //更新会话消息
             ChatSession chatSession = new ChatSession();
-            chatSession.setLastMessage(messageContent);
+            chatSession.setLastMessage(truncatePreview(messageContent));
             if (UserContactTypeEnum.GROUP == contactTypeEnum && !MessageTypeEnum.GROUP_CREATE.getType().equals(messageTypeEnum.getType())) {
-                chatSession.setLastMessage(tokenUserInfoDto.getNickName() + "：" + messageContent);
+                chatSession.setLastMessage(truncatePreview(tokenUserInfoDto.getNickName() + "：" + messageContent));
             }
             lastMessage = chatSession.getLastMessage();
             //如果是媒体文件
@@ -480,6 +488,16 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     /**
      * 找出这个群里有哪些AI助手
      */
+    /**
+     * 截断会话预览文案，避免超出 chat_session.last_message 的长度限制
+     */
+    private String truncatePreview(String content) {
+        if (content == null || content.length() <= MAX_LAST_MESSAGE_LENGTH) {
+            return content;
+        }
+        return content.substring(0, MAX_LAST_MESSAGE_LENGTH) + "…";
+    }
+
     /**
      * 把消息里的"@助手昵称"去掉，剩下的才是需求本身。
      * 不去掉的话，需求文本会带着@前缀传给模型，容易被它当成要转交的指令
