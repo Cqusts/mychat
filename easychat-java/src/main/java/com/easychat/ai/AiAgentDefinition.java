@@ -23,9 +23,16 @@ public class AiAgentDefinition {
     private String prompt;
 
     /**
-     * 个性签名，展示用
+     * 个性签名，一句话标签
      */
     private String signature;
+
+    /**
+     * 能力说明，告诉用户这个助手能帮你做什么。
+     * 和prompt的区别：prompt是给模型看的人设，这个是给人看的功能介绍。
+     * 多条能力用 | 分隔，前端会拆成列表展示。
+     */
+    private String description;
 
     public String getId() {
         return id;
@@ -57,5 +64,13 @@ public class AiAgentDefinition {
 
     public void setSignature(String signature) {
         this.signature = signature;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 }

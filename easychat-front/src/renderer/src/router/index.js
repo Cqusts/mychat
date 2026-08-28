@@ -56,6 +56,10 @@ const router = createRouter({
         name: "聊天",
         component: () => import('@/views/chat/Chat.vue'),
       }, {
+        path: "/aiAgent",
+        name: "AI助手",
+        component: () => import('@/views/aiagent/AiAgent.vue'),
+      }, {
         path: "/contact",
         name: "联系人",
         redirect: "/contact/blank",

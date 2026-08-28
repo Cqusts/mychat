@@ -76,6 +76,12 @@ const menuList = ref([
     position: 'top'
   },
   {
+    name: 'aiAgent',
+    icon: 'icon-robot',
+    path: '/aiAgent',
+    position: 'top'
+  },
+  {
     name: 'mysetting',
     icon: 'icon-more2',
     path: '/setting',

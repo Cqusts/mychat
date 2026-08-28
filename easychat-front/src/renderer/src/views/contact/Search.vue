@@ -107,7 +107,7 @@ const resetForm = () => {
 }
 
 const sendMessage = () => {
-  router.push({ path: '/chat', query: { chatId: searchResult.value.contactId } })
+  router.push({ path: '/chat', query: { chatId: searchResult.value.contactId, timestamp: new Date().getTime() } })
 }
 </script>
 

@@ -35,7 +35,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/contact")
@@ -75,13 +77,29 @@ public class UserContactController extends ABaseController {
      */
     @RequestMapping("/loadAiAgents")
     @GlobalInterceptor
-    public ResponseVO loadAiAgents() {
+    public ResponseVO loadAiAgents(HttpServletRequest request) {
+        TokenUserInfoDto tokenUserInfoDto = getTokenUserInfo(request);
+        //一次性查出当前用户已经加了哪些助手，避免每个助手查一次库
+        Set<String> myContactIds = new HashSet<>();
+        UserContactQuery contactQuery = new UserContactQuery();
+        contactQuery.setUserId(tokenUserInfoDto.getUserId());
+        contactQuery.setContactType(UserContactTypeEnum.USER.getType());
+        contactQuery.setStatus(UserContactStatusEnum.FRIEND.getStatus());
+        List<UserContact> myContacts = userContactService.findListByParam(contactQuery);
+        if (myContacts != null) {
+            for (UserContact contact : myContacts) {
+                myContactIds.add(contact.getContactId());
+            }
+        }
+
         List<AiAgentVO> agentList = new ArrayList<>();
         for (AiAgentDefinition agent : aiAgentRegistry.getAgents()) {
             AiAgentVO vo = new AiAgentVO();
             vo.setContactId(agent.getId());
             vo.setContactName(agent.getName());
             vo.setSignature(agent.getSignature());
+            vo.setDescription(agent.getDescription());
+            vo.setInContact(myContactIds.contains(agent.getId()));
             agentList.add(vo);
         }
         return getSuccessResponseVO(agentList);

@@ -13,6 +13,16 @@ public class AiAgentVO {
 
     private String signature;
 
+    /**
+     * 能力说明，多条用 | 分隔
+     */
+    private String description;
+
+    /**
+     * 当前用户是否已经把它加为联系人
+     */
+    private Boolean inContact;
+
     public String getContactId() {
         return contactId;
     }
@@ -35,5 +45,21 @@ public class AiAgentVO {
 
     public void setSignature(String signature) {
         this.signature = signature;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Boolean getInContact() {
+        return inContact;
+    }
+
+    public void setInContact(Boolean inContact) {
+        this.inContact = inContact;
     }
 }

@@ -1,5 +1,7 @@
 package com.easychat.ai;
 
+import com.easychat.entity.config.AppConfig;
+import com.easychat.entity.constants.Constants;
 import com.easychat.entity.enums.JoinTypeEnum;
 import com.easychat.entity.enums.UserStatusEnum;
 import com.easychat.entity.po.UserInfo;
@@ -13,8 +15,16 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import javax.imageio.ImageIO;
 import jakarta.annotation.Resource;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.Date;
+import java.util.List;
 
 /**
  * 启动时把配置里的AI助手写进user_info表。
@@ -39,16 +49,102 @@ public class AiAgentInitializer implements ApplicationRunner {
     @Resource
     private UserInfoMapper<UserInfo, UserInfoQuery> userInfoMapper;
 
+    @Resource
+    private AppConfig appConfig;
+
+    /**
+     * 生成的默认头像边长
+     */
+    private static final int AVATAR_SIZE = 128;
+
+    /**
+     * 助手头像底色，按配置顺序轮流取，让几个助手一眼能区分开
+     */
+    private static final Color[] AVATAR_COLORS = new Color[]{
+            new Color(0x07, 0xC1, 0x60),
+            new Color(0x57, 0x6B, 0x95),
+            new Color(0xFA, 0x9D, 0x3B),
+            new Color(0x8E, 0x67, 0xD8),
+            new Color(0x14, 0x85, 0xEE)
+    };
+
     @Override
     public void run(ApplicationArguments args) {
-        for (AiAgentDefinition agent : aiAgentRegistry.getAgents()) {
+        List<AiAgentDefinition> agents = aiAgentRegistry.getAgents();
+        for (int i = 0; i < agents.size(); i++) {
+            AiAgentDefinition agent = agents.get(i);
             try {
                 initAgent(agent);
+                initAvatar(agent, i);
             } catch (Exception e) {
                 //某个助手初始化失败不能影响服务启动
                 logger.error("初始化AI助手失败, agentId:{}", agent.getId(), e);
             }
         }
+    }
+
+    /**
+     * 给助手生成一张默认头像。
+     * 头像接口对不存在的文件直接返回错误，前端就会显示一个灰色的破图标；
+     * 助手又没有上传头像的入口，所以这里补一张，聊天列表、消息气泡、群成员列表就都正常了。
+     * 已经存在的不覆盖——管理员手动放了图就以他的为准。
+     */
+    private void initAvatar(AiAgentDefinition agent, int index) {
+        if (StringTools.isEmpty(agent.getId())) {
+            return;
+        }
+        try {
+            File avatarFolder = new File(appConfig.getProjectFolder()
+                    + Constants.FILE_FOLDER_FILE + Constants.FILE_FOLDER_AVATAR_NAME);
+            if (!avatarFolder.exists() && !avatarFolder.mkdirs()) {
+                logger.warn("头像目录创建失败，跳过助手默认头像生成: {}", avatarFolder.getPath());
+                return;
+            }
+            File avatarFile = new File(avatarFolder.getPath() + "/" + agent.getId() + Constants.IMAGE_SUFFIX);
+            //封面图是原图路径直接拼后缀，和UserInfoServiceImpl里的写法保持一致
+            File coverFile = new File(avatarFile.getPath() + Constants.COVER_IMAGE_SUFFIX);
+            if (avatarFile.exists() && coverFile.exists()) {
+                return;
+            }
+            BufferedImage image = drawRobotAvatar(AVATAR_COLORS[index % AVATAR_COLORS.length]);
+            ImageIO.write(image, "png", avatarFile);
+            ImageIO.write(image, "png", coverFile);
+            logger.info("已生成AI助手默认头像: {}", avatarFile.getPath());
+        } catch (Exception e) {
+            //头像只是显示效果，生成失败不影响助手可用
+            logger.warn("生成AI助手默认头像失败, agentId:{}", agent.getId(), e);
+        }
+    }
+
+    /**
+     * 画一个简单的机器人头像。
+     * 只用几何图形不写文字：服务器上不一定装了中文字体，画字容易变成方框。
+     */
+    private BufferedImage drawRobotAvatar(Color background) {
+        BufferedImage image = new BufferedImage(AVATAR_SIZE, AVATAR_SIZE, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = image.createGraphics();
+        try {
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(background);
+            g.fillRect(0, 0, AVATAR_SIZE, AVATAR_SIZE);
+
+            g.setColor(Color.WHITE);
+            //天线
+            g.setStroke(new BasicStroke(5f));
+            g.drawLine(64, 26, 64, 40);
+            g.fillOval(58, 18, 12, 12);
+            //头
+            g.fillRoundRect(30, 40, 68, 56, 18, 18);
+            //眼睛（挖成底色）
+            g.setColor(background);
+            g.fillOval(45, 58, 14, 14);
+            g.fillOval(69, 58, 14, 14);
+            //嘴
+            g.fillRoundRect(50, 80, 28, 7, 4, 4);
+        } finally {
+            g.dispose();
+        }
+        return image;
     }
 
     private void initAgent(AiAgentDefinition agent) {
