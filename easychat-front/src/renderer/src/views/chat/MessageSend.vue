@@ -1,5 +1,20 @@
 <template>
   <div class="send-panel">
+    <!--@提及成员面板：挂在send-panel下而不是input-area里，
+        因为input-area有overflow:auto，浮到框外的元素会被裁掉-->
+    <div class="mention-panel" v-if="mentionVisible && mentionList.length > 0">
+      <div
+        :class="['mention-item', index == mentionIndex ? 'active' : '']"
+        v-for="(item, index) in mentionList"
+        :key="item.userId"
+        @mousedown.prevent="pickMention(item)"
+        @mouseenter="mentionIndex = index"
+      >
+        <Avatar :userId="item.userId" :width="24" :showDetail="false"></Avatar>
+        <div class="nick-name">{{ item.contactName }}</div>
+        <div class="agent-tag" v-if="agentIdSet.has(item.userId)">AI</div>
+      </div>
+    </div>
     <div class="toolbar">
       <el-popover
         :visible="showEmojiPopover"
@@ -42,6 +57,7 @@
     </div>
     <div class="input-area" @drop="dropHandler" @dragover="dragOverHandler">
       <el-input
+        ref="msgInputRef"
         :rows="5"
         v-model="msgContent"
         type="textarea"
@@ -50,7 +66,14 @@
         show-word-limit
         spellcheck="false"
         input-style="background:#f5f5f5;border:none;"
-        @keydown.enter="sendMessage"
+        @keydown.enter="onEnterKey"
+        @keydown.tab="onTabKey"
+        @keydown.up="onArrowKey($event, -1)"
+        @keydown.down="onArrowKey($event, 1)"
+        @keydown.esc="closeMention"
+        @input="detectMention"
+        @click="detectMention"
+        @blur="closeMention"
         @paste="pasteFile"
       />
     </div>
@@ -83,7 +106,7 @@
 <script setup>
 import SearchAdd from '@/views/contact/SearchAdd.vue'
 import {getFileType} from '@/utils/Constants.js'
-import {getCurrentInstance, onMounted, onUnmounted, ref} from 'vue'
+import {computed, getCurrentInstance, nextTick, onMounted, onUnmounted, ref} from 'vue'
 import emojiList from '@/utils/Emoji.js'
 import {useUserInfoStore} from '@/stores/UserInfoStore'
 import {useSysSettingStore} from '@/stores/SysSettingStore'
@@ -100,8 +123,166 @@ const props = defineProps({
   }
 })
 
+//======================= @提及成员 =======================
+//这个项目原本没有@功能，只能手打昵称。群里要@助手才能让它发言，所以补上。
+const msgInputRef = ref()
+const mentionVisible = ref(false)
+const mentionIndex = ref(0)
+const mentionQuery = ref('')
+const memberList = ref([])
+const agentIdSet = ref(new Set())
+//记录成员列表是哪个群的，换群要重新拉
+const loadedGroupId = ref(null)
+
+//当前群聊里可@的人：排除自己，按输入的关键词过滤
+const mentionList = computed(() => {
+  const keyword = mentionQuery.value.toLowerCase()
+  const myUserId = userInfoStore.getInfo().userId
+  return memberList.value
+    .filter((item) => item.userId != myUserId)
+    .filter((item) => {
+      if (!keyword) {
+        return true
+      }
+      return (item.contactName || '').toLowerCase().includes(keyword)
+    })
+    .slice(0, 8)
+})
+
+const isGroupChat = () => {
+  return props.currentChatSession && props.currentChatSession.contactType == 1
+}
+
+const loadMentionData = async () => {
+  const groupId = props.currentChatSession.contactId
+  if (!groupId || loadedGroupId.value == groupId) {
+    return
+  }
+  let result = await proxy.Request({
+    url: proxy.Api.getGroupInfo4Chat,
+    params: { groupId },
+    showError: false
+  })
+  if (!result) {
+    return
+  }
+  loadedGroupId.value = groupId
+  memberList.value = result.data.userContactList || []
+  //顺便标出哪些成员是AI助手，@助手是群里最主要的用法
+  if (agentIdSet.value.size == 0) {
+    let agentResult = await proxy.Request({
+      url: proxy.Api.loadAiAgents,
+      showError: false
+    })
+    if (agentResult) {
+      agentIdSet.value = new Set(agentResult.data.map((item) => item.contactId))
+    }
+  }
+}
+
+//光标位置往前找最近的@，判断当前是不是正在输入一个提及
+const detectMention = () => {
+  if (!isGroupChat()) {
+    closeMention()
+    return
+  }
+  const textarea = msgInputRef.value ? msgInputRef.value.textarea : null
+  //直接读DOM里的值和光标位置：不用去纠结el-input的input和update:modelValue谁先触发
+  const text = textarea ? textarea.value : msgContent.value
+  const caret = textarea ? textarea.selectionStart : text.length
+  const before = text.slice(0, caret)
+  const atIndex = before.lastIndexOf('@')
+  if (atIndex < 0) {
+    closeMention()
+    return
+  }
+  //@前面必须是行首或空白，避免把邮箱之类的也当成提及
+  const prevChar = atIndex > 0 ? before.charAt(atIndex - 1) : ''
+  if (prevChar && !/\s/.test(prevChar)) {
+    closeMention()
+    return
+  }
+  const keyword = before.slice(atIndex + 1)
+  //关键词里出现空白说明这次@已经输完了
+  if (/\s/.test(keyword)) {
+    closeMention()
+    return
+  }
+  mentionQuery.value = keyword
+  mentionIndex.value = 0
+  //面板从关闭变为打开时强制刷新一次：
+  //刚在群详情里把助手拉进群、回到聊天窗就@，用缓存会漏掉它
+  if (!mentionVisible.value) {
+    loadedGroupId.value = null
+  }
+  mentionVisible.value = true
+  loadMentionData()
+}
+
+const closeMention = () => {
+  mentionVisible.value = false
+  mentionQuery.value = ''
+}
+
+//把光标处的“@关键词”替换成“@昵称 ”
+const pickMention = (member) => {
+  if (!member) {
+    return
+  }
+  const textarea = msgInputRef.value ? msgInputRef.value.textarea : null
+  const text = textarea ? textarea.value : msgContent.value
+  const caret = textarea ? textarea.selectionStart : text.length
+  const before = text.slice(0, caret)
+  const atIndex = before.lastIndexOf('@')
+  if (atIndex < 0) {
+    closeMention()
+    return
+  }
+  const inserted = '@' + member.contactName + ' '
+  msgContent.value = before.slice(0, atIndex) + inserted + text.slice(caret)
+  closeMention()
+  //等DOM更新完再把光标放到插入内容之后
+  nextTick(() => {
+    if (!textarea) {
+      return
+    }
+    const newCaret = atIndex + inserted.length
+    textarea.focus()
+    textarea.setSelectionRange(newCaret, newCaret)
+  })
+}
+
+const onArrowKey = (e, step) => {
+  if (!mentionVisible.value || mentionList.value.length == 0) {
+    return
+  }
+  //面板开着的时候上下键用来选人，不去移动光标
+  e.preventDefault()
+  const total = mentionList.value.length
+  mentionIndex.value = (mentionIndex.value + step + total) % total
+}
+
+const onTabKey = (e) => {
+  if (!mentionVisible.value || mentionList.value.length == 0) {
+    return
+  }
+  e.preventDefault()
+  pickMention(mentionList.value[mentionIndex.value])
+}
+
+//面板开着时回车是“选中这个人”，不是发消息
+const onEnterKey = (e) => {
+  if (mentionVisible.value && mentionList.value.length > 0) {
+    e.preventDefault()
+    pickMention(mentionList.value[mentionIndex.value])
+    return
+  }
+  sendMessage(e)
+}
+
 const cleanMessage = () => {
   msgContent.value = ''
+  closeMention()
 }
 defineExpose({
   cleanMessage
@@ -345,6 +526,52 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.mention-panel {
+  position: absolute;
+  left: 10px;
+  bottom: 100%;
+  z-index: 10;
+  width: 200px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 4px;
+  padding: 4px 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+
+  .mention-item {
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    cursor: pointer;
+
+    .nick-name {
+      flex: 1;
+      margin-left: 8px;
+      font-size: 13px;
+      color: #333;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .agent-tag {
+      flex-shrink: 0;
+      padding: 0 4px;
+      font-size: 11px;
+      color: #fff;
+      background: #576b95;
+      border-radius: 3px;
+    }
+
+    &.active {
+      background: #ededed;
+    }
+  }
+}
+
 .emoji-list {
   .emoji-item {
     float: left;
@@ -365,6 +592,8 @@ onUnmounted(() => {
 .send-panel {
   height: 200px;
   border-top: 1px solid #ddd;
+  //@提及面板的定位基准
+  position: relative;
 
   .toolbar {
     height: 40px;
