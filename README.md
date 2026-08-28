@@ -168,7 +168,8 @@ mychat/
 │   │   ├── entity/                   # 实体类 & DTO
 │   │   └── mappers/                  # MyBatis Mapper
 │   └── src/main/resources/
-│       └── application.properties
+│       ├── application.properties   # 数据库/Redis/端口等基础设施配置
+│       └── application.yml          # AI 配置（中文必须放这里，见下文）
 ├── easychat-front/                   # 前端 Electron + Vue 3 桌面应用
 │   └── src/
 │       ├── main/                     # Electron 主进程（含 WebSocket 客户端）
@@ -200,7 +201,7 @@ mysql -u root -p easychat < easychat.sql
 
 ### 2. 配置后端
 
-编辑 `easychat-java/src/main/resources/application.properties`：
+基础设施配置在 `easychat-java/src/main/resources/application.properties`：
 
 ```properties
 # 数据库连接
@@ -214,12 +215,22 @@ spring.data.redis.port=6379
 
 # 文件存储目录
 project.folder=D:/easychat/
-
-# AI 大模型（不配置则 AI 功能不可用，IM 部分不受影响）
-spring.ai.openai.api-key=你的API密钥
-spring.ai.openai.base-url=https://api.deepseek.com
-spring.ai.openai.chat.options.model=deepseek-chat
 ```
+
+AI 配置在同目录的 `application.yml`（不配置则 AI 功能不可用，IM 部分不受影响）：
+
+```yaml
+spring:
+  ai:
+    openai:
+      api-key: "你的API密钥"
+      base-url: "https://api.deepseek.com"
+      chat:
+        options:
+          model: "deepseek-chat"
+```
+
+> **为什么 AI 配置单独放 yml**：Spring Boot 的 `OriginTrackedPropertiesLoader` 写死用 ISO-8859-1 读 `.properties`（遵循 `java.util.Properties` 规范），中文写在 `.properties` 里一定会变成乱码，且没有任何配置项能改这个行为。助手昵称、人设、能力说明都是中文，所以整块 AI 配置放在 yml —— SnakeYAML 默认按 UTF-8 读。编辑时确保编辑器保存为 UTF-8。
 
 支持的 AI 服务商：
 
@@ -290,6 +301,8 @@ npm run build:linux   # Linux
 
 ## AI 配置项
 
+以下配置都在 `easychat-java/src/main/resources/application.yml`，表格里用点号写法表示层级。
+
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
 | `ai.chat.system-prompt` | — | 单聊助手的人设 |
@@ -309,12 +322,14 @@ npm run build:linux   # Linux
 
 加一段配置即可，不用改代码：
 
-```properties
-ai.agents[4].id=Uagentops
-ai.agents[4].name=运维小O
-ai.agents[4].signature=只关心线上会不会炸
-ai.agents[4].description=评估上线风险和回滚方案|排查线上故障的思路|提醒监控和告警该配什么
-ai.agents[4].prompt=你是一名运维工程师，习惯从部署复杂度、监控告警和故障恢复的角度思考问题。
+在 `application.yml` 的 `ai.agents` 下追加一项：
+
+```yaml
+    - id: "Uagentops"
+      name: "运维小O"
+      signature: "只关心线上会不会炸"
+      description: "评估上线风险和回滚方案|排查线上故障的思路|提醒监控和告警该配什么"
+      prompt: "你是一名运维工程师，习惯从部署复杂度、监控告警和故障恢复的角度思考问题。"
 ```
 
 三个描述字段用途不同，别搞混：
@@ -327,7 +342,7 @@ ai.agents[4].prompt=你是一名运维工程师，习惯从部署复杂度、监
 
 > `id` 必须以 `U` 开头且不超过 12 个字符——`user_info.user_id` 字段长度限制。
 > 重启后会自动创建助手账号，并生成一张默认头像（`{project.folder}/file/avatar/` 下，已存在的不覆盖）。
-> `ai.agents[0]` 是内置助手，`id` 必须等于 `Constants.ROBOT_UID`（即 `Urobot`），注册时会自动加为好友。
+> 列表里的第一项是内置助手，`id` 必须等于 `Constants.ROBOT_UID`（即 `Urobot`），注册时会自动加为好友。
 
 ## 性能基准
 

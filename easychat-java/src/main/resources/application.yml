@@ -1,0 +1,91 @@
+# EasyChat 的 AI 配置
+#
+# 为什么这些配置单独放 yml 而不是和其它配置一起放 application.properties：
+# Spring Boot 的 OriginTrackedPropertiesLoader 是写死用 ISO-8859-1 读 .properties 的
+# （遵循 java.util.Properties 规范），所以 .properties 里直接写中文一定会变成乱码，
+# 而且没有任何配置项能改这个行为。yml 走 SnakeYAML，默认按 UTF-8 读，中文正常。
+# 编辑本文件时请确保编辑器保存为 UTF-8。
+
+spring:
+  ai:
+    openai:
+      # API密钥（必填）- 替换为你自己的API Key
+      api-key: "YOUR_API_KEY_HERE"
+      # API地址（必填）- 根据你选择的大模型厂商填写
+      # OpenAI: https://api.openai.com
+      # 阿里通义千问: https://dashscope.aliyuncs.com/compatible-mode
+      # DeepSeek: https://api.deepseek.com
+      # 智谱GLM: https://open.bigmodel.cn/api/paas
+      base-url: "https://api.deepseek.com"
+      chat:
+        options:
+          # OpenAI: gpt-3.5-turbo / gpt-4o | 通义千问: qwen-turbo | DeepSeek: deepseek-chat | 智谱: glm-4-flash
+          model: "deepseek-chat"
+          # 生成随机性 0-1，值越大回复越随机
+          temperature: 0.7
+
+ai:
+  chat:
+    # 兜底系统提示词：助手没有在 ai.agents 里配置自己的 prompt 时用这个
+    system-prompt: "你是EasyChat的智能助手小E，性格友好活泼，用简洁的中文回答问题。你可以调用工具查询当前用户的好友列表、群聊列表和聊天记录：需要这些信息时直接调用工具，不要凭空编造，也不要向用户索要联系人ID（用listFriends或listGroups自己查）。遇到“上周”“昨天”这类相对时间，先调getCurrentTime确认今天是哪天。如果用户打招呼，请热情回应。"
+    # 保留的最大对话历史轮数（一问一答为一轮）
+    max-history: 20
+    history:
+      # 对话历史在Redis中的过期天数，每次追加都会续期
+      expire-days: 7
+    stream:
+      # 片段聚合：缓冲区攒够多少个字符就推送一次
+      flush-chars: 20
+      # 片段聚合：距上次推送超过多少毫秒就推送一次
+      # 两个阈值共同作用，避免每个token都触发一次Redis广播 + WebSocket写
+      flush-interval-ms: 80
+      # 单次流式回复的整体超时（秒），防止模型不返回时永久占住线程池线程
+      timeout-seconds: 120
+    executor:
+      # 调用大模型是IO密集型操作，放独立线程池执行，不占用Tomcat的HTTP工作线程
+      core-size: 16
+      max-size: 64
+      # 队列不宜过深，排太久还不如快速失败让用户重试
+      queue-capacity: 64
+      keep-alive-seconds: 60
+    tools:
+      # 是否开放业务工具（查好友/查群/搜聊天记录/查时间）给模型调用
+      # 换到不支持Function Calling的模型上可以关掉，退回纯对话
+      enabled: true
+    group:
+      # 助手之间互相接话的最大轮数。助手可以@别的助手，必须有硬上限防止无限对话
+      max-depth: 3
+      # 拼给助手看的群聊上下文条数
+      context-size: 15
+
+  # AI助手列表
+  # 每个助手都是一个真实存在的用户（启动时自动写入 user_info 并生成默认头像），
+  # 可以加为好友私聊、被拉进群、被@
+  # id 必须以 U 开头且不超过12个字符（user_info.user_id 字段长度限制）
+  # signature 是昵称下方的一句话标签；description 是给用户看的能力清单，多条用 | 分隔；
+  # prompt 是给模型看的人设，三者用途不同
+  agents:
+    # 内置助手。id 必须等于 Constants.ROBOT_UID（U+robot），注册时会自动加为好友
+    - id: "Urobot"
+      name: "智能助手小E"
+      signature: "有什么想问的都可以找我"
+      description: "回答日常问题，陪你聊天|帮你查好友列表和群聊列表|按关键词搜索你和某人的聊天记录|记得住上下文，可以连着多轮问"
+      prompt: "你是EasyChat的智能助手小E，性格友好活泼，用简洁的中文回答问题。如果用户打招呼，请热情回应。"
+
+    - id: "Uagentpm"
+      name: "产品经理小P"
+      signature: "从用户价值出发想问题"
+      description: "帮你判断一个需求值不值得做|梳理需求优先级和使用场景|追问方案背后的用户价值|适合拉进群里一起评审需求"
+      prompt: "你是一名资深产品经理，习惯从用户价值、需求优先级和使用场景的角度思考问题。你会追问“这个功能解决了谁的什么问题”，对没想清楚用户价值的方案保持怀疑。"
+
+    - id: "Uagentarch"
+      name: "架构师小A"
+      signature: "先问可行性和复杂度"
+      description: "评估技术方案的可行性和工作量|指出数据一致性、并发和扩展性上的坑|权衡长期维护成本，拦住过度设计|适合拉进群里做技术评审"
+      prompt: "你是一名后端架构师，习惯从技术可行性、系统复杂度和长期维护成本的角度思考问题。你会关注数据一致性、并发和扩展性，对会引入过度复杂度的方案保持警惕。"
+
+    - id: "Uagentqa"
+      name: "测试工程师小T"
+      signature: "专门想边界情况"
+      description: "帮你找出没考虑到的边界情况|梳理异常路径和失败场景|提醒并发、超时、脏数据这类隐患|适合拉进群里挑方案的毛病"
+      prompt: "你是一名测试工程师，习惯从边界情况、异常路径和质量风险的角度思考问题。你会主动指出别人没考虑到的失败场景，比如并发、超时、脏数据和用户误操作。"
