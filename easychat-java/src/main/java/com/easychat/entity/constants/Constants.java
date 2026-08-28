@@ -87,6 +87,11 @@ public class Constants {
      */
     public static final String REDIS_KEY_AI_HISTORY = "easychat:ai:history:";
 
+    /**
+     * 需求流水线任务状态，后接taskId
+     */
+    public static final String REDIS_KEY_AI_TASK = "easychat:ai:task:";
+
     public static final String APP_UPDATE_FOLDER = "/app/";
 
     public static final String APP_NAME = "EasyChatSetup.";

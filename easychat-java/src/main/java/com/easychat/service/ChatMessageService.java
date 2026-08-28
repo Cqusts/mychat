@@ -75,6 +75,14 @@ public interface ChatMessageService {
 
     MessageSendDto saveMessage(ChatMessage chatMessage, TokenUserInfoDto tokenUserInfoDto);
 
+    /**
+     * 保存由需求流水线产生的助手发言。
+     * 和saveMessage的唯一区别是不再解析@去触发别的助手——
+     * 流程的下一棒由状态机决定，不能让发言内容里的@把自由对话链路也拉起来，
+     * 那样两套调度会打架、同一个助手被重复触发。
+     */
+    MessageSendDto saveWorkflowMessage(ChatMessage chatMessage, TokenUserInfoDto agentToken);
+
     void saveMessageFile(String userId, Long messageId, MultipartFile file, MultipartFile cover);
 
     File downloadFile(TokenUserInfoDto userInfoDto, Long messageId, Boolean cover);

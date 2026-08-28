@@ -25,6 +25,8 @@ import com.easychat.utils.DateUtil;
 import com.easychat.utils.StringTools;
 import com.easychat.ai.AiAgentDefinition;
 import com.easychat.ai.AiAgentRegistry;
+import com.easychat.ai.AiStreamPusher;
+import com.easychat.ai.AiWorkflowEngine;
 import com.easychat.service.AiChatService;
 import com.easychat.service.AiStreamCallback;
 import com.easychat.entity.dto.AiStreamChunkDto;
@@ -87,6 +89,12 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     @Resource
     private AiAgentRegistry aiAgentRegistry;
+
+    @Resource
+    private AiStreamPusher aiStreamPusher;
+
+    @Resource
+    private AiWorkflowEngine aiWorkflowEngine;
 
     /**
      * 群里助手之间互相接话的最大轮数。
@@ -316,6 +324,21 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                     groupId, agentNames, content);
             return;
         }
+        //真人@到流水线入口助手，就是在提需求，交给编排引擎按状态机跑，
+        //不再走下面的自由对话分支。助手之间的转交不触发流程，避免流程被套娃启动
+        boolean fromHuman = !aiAgentRegistry.isAgent(sender.getUserId());
+        if (fromHuman && aiWorkflowEngine.isEnabled()) {
+            for (AiAgentDefinition agent : mentioned) {
+                if (!aiWorkflowEngine.isEntryAgent(agent.getId())) {
+                    continue;
+                }
+                String requirement = stripMentions(content, groupAgentIds);
+                logger.info("识别为需求流水线, groupId:{}, 需求:{}", groupId, requirement);
+                aiWorkflowEngine.startTask(groupId, sessionId, sender, requirement, groupAgentIds);
+                return;
+            }
+        }
+
         //真人可以一次@多个助手（比如拉几个角色一起评审），
         //但助手转交时只认第一个：否则每层扇出2个的话，8层就是几百次模型调用，
         //额度会被指数级烧光。助手之间保持单线传递，链条长度就只受max-depth约束
@@ -362,13 +385,13 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         aiChatService.chatStreamOnce(systemPrompt, userPrompt, new AiStreamCallback() {
             @Override
             public void onChunk(String delta) {
-                pushAiStream(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM, streamId,
+                aiStreamPusher.push(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM, streamId,
                         StringTools.resetMessageContent(delta), index.getAndIncrement());
             }
 
             @Override
             public void onComplete(String fullContent) {
-                pushAiStream(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                aiStreamPusher.push(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
                         StringTools.resetMessageContent(fullContent), index.getAndIncrement());
                 //助手的回复也走正常落库链路，所以它自己也可能@到别的助手，
                 //depth+1把这条接话链的长度记下来
@@ -378,7 +401,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             @Override
             public void onError(String errorMessage) {
                 //群里出错就安静地不发言，不用错误消息刷屏
-                pushAiStream(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                aiStreamPusher.push(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
                         "", index.getAndIncrement());
                 //群里不发错误消息避免刷屏，但日志必须能定位问题，
                 //否则用户看到的就是"@了没反应"，完全无从查起
@@ -457,6 +480,21 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     /**
      * 找出这个群里有哪些AI助手
      */
+    /**
+     * 把消息里的"@助手昵称"去掉，剩下的才是需求本身。
+     * 不去掉的话，需求文本会带着@前缀传给模型，容易被它当成要转交的指令
+     */
+    private String stripMentions(String content, List<String> groupAgentIds) {
+        String result = content == null ? "" : content;
+        for (String agentId : groupAgentIds) {
+            AiAgentDefinition agent = aiAgentRegistry.getById(agentId);
+            if (agent != null && !StringTools.isEmpty(agent.getName())) {
+                result = result.replace("@" + agent.getName(), " ");
+            }
+        }
+        return result.trim();
+    }
+
     private List<String> findGroupAgentIds(String groupId) {
         UserContactQuery query = new UserContactQuery();
         query.setContactId(groupId);
@@ -472,6 +510,13 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             }
         }
         return agentIds;
+    }
+
+    @Override
+    public MessageSendDto saveWorkflowMessage(ChatMessage chatMessage, TokenUserInfoDto agentToken) {
+        //深度直接给到上限：dispatchGroupAgentReplies里会因为达到上限提前返回，
+        //从而不解析这条消息里的@。复用已有的深度判断，不用再加一个开关
+        return saveMessage(chatMessage, agentToken, maxAgentDepth);
     }
 
     /**
@@ -542,13 +587,13 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         aiChatService.chatStream(agentToken.getUserId(), systemPrompt, userId, userMessage, new AiStreamCallback() {
             @Override
             public void onChunk(String delta) {
-                pushAiStream(agentToken, userId, sessionId, MessageTypeEnum.AI_STREAM, streamId,
+                aiStreamPusher.push(agentToken, userId, sessionId, MessageTypeEnum.AI_STREAM, streamId,
                         StringTools.resetMessageContent(delta), index.getAndIncrement());
             }
 
             @Override
             public void onToolCall(String toolHint) {
-                pushAiStream(agentToken, userId, sessionId, MessageTypeEnum.AI_TOOL_CALL, streamId,
+                aiStreamPusher.push(agentToken, userId, sessionId, MessageTypeEnum.AI_TOOL_CALL, streamId,
                         toolHint, index.getAndIncrement());
             }
 
@@ -556,39 +601,18 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             public void onComplete(String fullContent) {
                 //先告知前端流已结束，再落库；
                 //落库后的正式消息会顺着原有链路推给前端，用来替换掉临时的流式气泡
-                pushAiStream(agentToken, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                aiStreamPusher.push(agentToken, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
                         StringTools.resetMessageContent(fullContent), index.getAndIncrement());
                 saveAgentSingleMessage(agentToken, userId, fullContent);
             }
 
             @Override
             public void onError(String errorMessage) {
-                pushAiStream(agentToken, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
+                aiStreamPusher.push(agentToken, userId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
                         StringTools.resetMessageContent(errorMessage), index.getAndIncrement());
                 saveAgentSingleMessage(agentToken, userId, errorMessage);
             }
         });
-    }
-
-    /**
-     * 推送一个流式片段。这类消息只走WebSocket，不落库、不更新会话，
-     * 真正的消息记录以结束后落库的那条CHAT消息为准。
-     */
-    private void pushAiStream(TokenUserInfoDto sender, String contactId, String sessionId,
-                              MessageTypeEnum messageType, String streamId, String content, Integer index) {
-        MessageSendDto<AiStreamChunkDto> chunk = new MessageSendDto<>();
-        chunk.setMessageType(messageType.getType());
-        //contactId决定这条消息推给谁：单聊填对方用户ID，群聊填群ID，
-        //ChannelContextUtils会按前缀路由到send2User或sendMsg2Group
-        chunk.setContactId(contactId);
-        chunk.setContactType(UserContactTypeEnum.getByPrefix(contactId).getType());
-        chunk.setSendUserId(sender.getUserId());
-        chunk.setSendUserNickName(sender.getNickName());
-        chunk.setSessionId(sessionId);
-        chunk.setSendTime(System.currentTimeMillis());
-        chunk.setStatus(MessageStatusEnum.SENDED.getStatus());
-        chunk.setExtendData(new AiStreamChunkDto(streamId, content, index));
-        messageHandler.sendMessage(chunk);
     }
 
     /**
