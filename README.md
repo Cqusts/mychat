@@ -223,12 +223,25 @@ AI 配置在同目录的 `application.yml`（不配置则 AI 功能不可用，I
 spring:
   ai:
     openai:
-      api-key: "你的API密钥"
+      # 优先读环境变量，读不到才用字面值
+      api-key: "${EASYCHAT_AI_API_KEY:YOUR_API_KEY_HERE}"
       base-url: "https://api.deepseek.com"
       chat:
         options:
           model: "deepseek-chat"
 ```
+
+**API Key 建议走环境变量**，`application.yml` 是提交进 git 的，真 key 写在里面会跟着推到远端：
+
+```bash
+# Windows（设完要重开终端）
+setx EASYCHAT_AI_API_KEY "sk-xxxx"
+
+# Linux / macOS
+export EASYCHAT_AI_API_KEY="sk-xxxx"
+```
+
+没配 key 时启动日志里会有明显的报错块，所有 AI 对话都会回复"AI助手暂时无法回复"。
 
 > **为什么 AI 配置单独放 yml**：Spring Boot 的 `OriginTrackedPropertiesLoader` 写死用 ISO-8859-1 读 `.properties`（遵循 `java.util.Properties` 规范），中文写在 `.properties` 里一定会变成乱码，且没有任何配置项能改这个行为。助手昵称、人设、能力说明都是中文，所以整块 AI 配置放在 yml —— SnakeYAML 默认按 UTF-8 读。编辑时确保编辑器保存为 UTF-8。
 

@@ -9,8 +9,11 @@
 spring:
   ai:
     openai:
-      # API密钥（必填）- 替换为你自己的API Key
-      api-key: "YOUR_API_KEY_HERE"
+      # API密钥（必填）。优先读环境变量 EASYCHAT_AI_API_KEY，读不到才用这里的字面值。
+      # 强烈建议用环境变量：本文件是提交进git的，真key写在这里会跟着推到远端。
+      #   Windows:  setx EASYCHAT_AI_API_KEY "sk-xxxx"   （设完要重开终端）
+      #   Linux/Mac: export EASYCHAT_AI_API_KEY="sk-xxxx"
+      api-key: "${EASYCHAT_AI_API_KEY:YOUR_API_KEY_HERE}"
       # API地址（必填）- 根据你选择的大模型厂商填写
       # OpenAI: https://api.openai.com
       # 阿里通义千问: https://dashscope.aliyuncs.com/compatible-mode

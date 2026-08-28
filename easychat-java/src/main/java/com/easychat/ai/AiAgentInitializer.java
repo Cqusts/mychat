@@ -10,6 +10,7 @@ import com.easychat.mappers.UserInfoMapper;
 import com.easychat.utils.StringTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -43,6 +44,11 @@ public class AiAgentInitializer implements ApplicationRunner {
      */
     private static final int MAX_USER_ID_LENGTH = 12;
 
+    /**
+     * 配置文件里的占位符，等同于没配
+     */
+    private static final String API_KEY_PLACEHOLDER = "YOUR_API_KEY_HERE";
+
     @Resource
     private AiAgentRegistry aiAgentRegistry;
 
@@ -51,6 +57,15 @@ public class AiAgentInitializer implements ApplicationRunner {
 
     @Resource
     private AppConfig appConfig;
+
+    @Value("${spring.ai.openai.api-key:}")
+    private String apiKey;
+
+    @Value("${spring.ai.openai.base-url:}")
+    private String baseUrl;
+
+    @Value("${spring.ai.openai.chat.options.model:}")
+    private String model;
 
     /**
      * 生成的默认头像边长
@@ -70,6 +85,7 @@ public class AiAgentInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        checkApiKey();
         List<AiAgentDefinition> agents = aiAgentRegistry.getAgents();
         for (int i = 0; i < agents.size(); i++) {
             AiAgentDefinition agent = agents.get(i);
@@ -81,6 +97,23 @@ public class AiAgentInitializer implements ApplicationRunner {
                 logger.error("初始化AI助手失败, agentId:{}", agent.getId(), e);
             }
         }
+    }
+
+    /**
+     * 启动时检查API Key有没有真的配上。
+     * 不检查的话，用户要一直到发消息收到"AI助手暂时无法回复"才知道，
+     * 而群聊里连这条兜底消息都不会有，等于完全没有反馈。
+     */
+    private void checkApiKey() {
+        if (StringTools.isEmpty(apiKey) || API_KEY_PLACEHOLDER.equals(apiKey)) {
+            logger.error("=================================================================");
+            logger.error("AI功能不可用：spring.ai.openai.api-key 还没有配置。");
+            logger.error("请设置环境变量 EASYCHAT_AI_API_KEY，或直接改 application.yml。");
+            logger.error("在此之前，所有AI对话都会回复\"AI助手暂时无法回复\"。");
+            logger.error("=================================================================");
+            return;
+        }
+        logger.info("AI大模型已配置: base-url={}, model={}", baseUrl, model);
     }
 
     /**
