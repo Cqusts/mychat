@@ -296,12 +296,33 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             return;
         }
         List<String> groupAgentIds = findGroupAgentIds(groupId);
+        if (groupAgentIds.isEmpty()) {
+            //消息里有@但群里一个助手都没有，最常见的原因是助手压根没被拉进群
+            logger.info("群里没有AI助手，跳过@解析, groupId:{}", groupId);
+            return;
+        }
         List<AiAgentDefinition> mentioned = aiAgentRegistry.matchMentions(content, groupAgentIds);
+        if (mentioned.isEmpty()) {
+            //能走到这说明群里有助手、消息里也有@，但昵称对不上。
+            //把两边都打出来，一眼能看出是不是昵称不一致（比如数据库里还是旧的乱码昵称）
+            List<String> agentNames = new ArrayList<>();
+            for (String agentId : groupAgentIds) {
+                AiAgentDefinition agent = aiAgentRegistry.getById(agentId);
+                if (agent != null) {
+                    agentNames.add(agent.getName());
+                }
+            }
+            logger.info("消息里有@但没匹配到任何助手, groupId:{}, 群内助手昵称:{}, 消息内容:{}",
+                    groupId, agentNames, content);
+            return;
+        }
         for (AiAgentDefinition agent : mentioned) {
             //助手@到自己不触发，否则它会无限自问自答
             if (agent.getId().equals(sender.getUserId())) {
                 continue;
             }
+            logger.info("触发群助手回复, groupId:{}, agent:{}({}), 第{}轮",
+                    groupId, agent.getName(), agent.getId(), agentDepth + 1);
             dispatchOneGroupAgent(agent, groupId, sessionId, groupAgentIds, agentDepth);
         }
     }
@@ -348,8 +369,10 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                 //群里出错就安静地不发言，不用错误消息刷屏
                 pushAiStream(agentToken, groupId, sessionId, MessageTypeEnum.AI_STREAM_END, streamId,
                         "", index.getAndIncrement());
-                logger.warn("群助手回复失败, groupId:{}, agentId:{}, reason:{}",
-                        groupId, agentToken.getUserId(), errorMessage);
+                //群里不发错误消息避免刷屏，但日志必须能定位问题，
+                //否则用户看到的就是"@了没反应"，完全无从查起
+                logger.error("群助手回复失败（群里不发消息，只记日志）, groupId:{}, agent:{}({}), reason:{}",
+                        groupId, agentToken.getNickName(), agentToken.getUserId(), errorMessage);
             }
         });
     }

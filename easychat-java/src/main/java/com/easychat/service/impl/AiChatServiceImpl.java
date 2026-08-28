@@ -153,7 +153,7 @@ public class AiChatServiceImpl implements AiChatService {
             appendMemory(memoryUserId, memoryAgentId, memoryUserMessage, reply);
             callback.onComplete(reply);
         } catch (Exception e) {
-            logger.error("AI流式对话异常, userId: {}", memoryUserId, e);
+            logger.error("AI流式对话异常（调用大模型失败），检查 api-key / base-url / model 配置。memoryUserId:{}", memoryUserId, e);
             if (full.length() == 0) {
                 callback.onError(FALLBACK_REPLY);
                 return;
