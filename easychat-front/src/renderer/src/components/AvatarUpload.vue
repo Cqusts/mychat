@@ -72,7 +72,13 @@ defineExpose({
 })
 
 onMounted(() => {
-  window.ipcRenderer.on('createCoverCallback', (e, { avatarStream, coverStream }) => {
+  window.ipcRenderer.on('createCoverCallback', (e, { avatarStream, coverStream, error }) => {
+    //主进程处理失败时带 error 回来，最常见的是没放 ffmpeg。
+    //以前这种情况根本不会有回调，界面就一直转圈
+    if (error) {
+      proxy.Message.error(error)
+      return
+    }
     const coverBlob = new Blob([coverStream], { type: 'image/png' })
     const coverFile = new File([coverBlob], 'thumbnail.jpg')
 

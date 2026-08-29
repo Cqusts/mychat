@@ -94,12 +94,12 @@ ai:
   coder:
     enabled: false
     # AI 专用的工作区目录，会在这里放一份独立克隆。不要指向你自己的仓库目录
-    workspace: "D:/easychat-ai-workspace"
+    workspace: "${EASYCHAT_AI_WORKSPACE:D:/easychat-ai-workspace}"
     # 从这个本地仓库读 origin 地址（也可以直接配 git-url 覆盖）
-    source-repo: "D:/JavaProject/mychat"
+    source-repo: "${EASYCHAT_SOURCE_REPO:}"
     git-url: ""
     # 从哪个分支拉出来改
-    base-branch: "Aibot"
+    base-branch: "${EASYCHAT_BASE_BRANCH:main}"
     # mvn / git 不在 PATH 里时填绝对路径
     maven-command: "mvn"
     git-command: "git"

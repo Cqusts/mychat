@@ -122,13 +122,25 @@ const onAddLocalMessage = () => {
         await saveMessage(data);
         //将文件保存到本地目录
         if (data.messageType == 5) {
-            //保存本地文件
-            await saveFile2Local(data.messageId, data.filePath, data.fileType);
-            const updateInfo = {
-                status: 1
+            try {
+                //保存本地文件
+                await saveFile2Local(data.messageId, data.filePath, data.fileType);
+                const updateInfo = {
+                    status: 1
+                }
+                //更新本地文件状态
+                await updateMessage(updateInfo, { messageId: data.messageId });
+            } catch (error) {
+                //失败也要把回调发回去，否则渲染进程一直等在那里，
+                //用户只会看到消息卡在"发送中"，看不到任何原因
+                console.error("保存本地文件失败", error);
+                e.sender.send("addLocalCallback", {
+                    status: 0,
+                    messageId: data.messageId,
+                    error: error.message
+                });
+                return;
             }
-            //更新本地文件状态
-            await updateMessage(updateInfo, { messageId: data.messageId });
         }
         //更新session信息
         data.lastReceiveTime = data.sendTime;
@@ -149,8 +161,15 @@ checkFile();
 //生成缩略图
 const onCreateCover = () => {
     ipcMain.on("createCover", async (e, localFilePath) => {
-        const stream = await createCover(localFilePath);
-        e.sender.send("createCoverCallback", stream);
+        try {
+            const stream = await createCover(localFilePath);
+            e.sender.send("createCoverCallback", stream);
+        } catch (error) {
+            //缺 ffmpeg 时最容易走到这里。不回调的话界面就是永远转圈，
+            //把原因带回去让用户能看见
+            console.error("生成头像缩略图失败", error);
+            e.sender.send("createCoverCallback", { error: error.message });
+        }
     });
 }
 

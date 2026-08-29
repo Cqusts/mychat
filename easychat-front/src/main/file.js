@@ -54,33 +54,52 @@ const getFFmegPath = () => {
     return path.join(getResourcesPath(), ffmpegPath);
 }
 
+/**
+ * ffmpeg / ffprobe 是二进制文件，仓库里没有（体积太大，也不适合进版本库），
+ * 需要使用者自己下载放进 assets 目录，见 assets/README.md。
+ *
+ * 缺文件时如果不在这里拦一道，表现是"点了上传头像之后永远转圈"：
+ * execCommand 出错也照样 resolve，接着 readFileSync 读一个根本不存在的文件抛异常，
+ * 而这个异常发生在 new Promise(async ...) 的执行器里，
+ * resolve 和 reject 一个都不会被调用，Promise 永远悬着，IPC 回调也就永远不回。
+ * 排查成本极高，所以宁可在最前面明确报错。
+ */
+const assertFFmpegReady = () => {
+    const missing = [getFFmegPath(), getFFprobePath()].filter((p) => !fs.existsSync(p));
+    if (missing.length > 0) {
+        throw new Error(
+            `缺少 ffmpeg 组件：${missing.join("、")}。` +
+            `请按 easychat-front/assets/README.md 的说明下载 ffmpeg.exe 和 ffprobe.exe 放进 assets 目录。`
+        );
+    }
+}
+
 const saveFile2Local = async (messageId, filePath, fileType) => {
-    return new Promise(async (resolve, reject) => {
-        let ffmpegPath = getFFmegPath();
-        let savePath = await getLocalFilePath("chat", false, messageId);
-        let coverPath = null;
-        fs.copyFileSync(filePath, savePath);
-        //生成缩略图
-        if (fileType != 2) {
-            //判断视频格式
-            let command = `${getFFprobePath()} -v error -select_streams v:0 -show_entries stream=codec_name "${filePath}"`
-            let result = await execCommand(command);
-            result = result.replaceAll("\r\n", "");
-            result = result.substring(result.indexOf("=") + 1);
-            let codec = result.substring(0, result.indexOf("["));
-            if ("hevc" === codec) {
-                command = `${ffmpegPath}  -y -i "${filePath}" -c:v libx264 -crf 20 "${savePath}"`;
-                await execCommand(command);
-            }
-            //生成缩略图
-            coverPath = savePath + cover_image_suffix;
-            command = `${ffmpegPath} -i "${savePath}" -y -vframes 1 -vf "scale=min(170\\,iw*min(170/iw\\,170/ih)):min(170\\,ih*min(170/iw\\,170/ih))" "${coverPath}"`
+    let ffmpegPath = getFFmegPath();
+    let savePath = await getLocalFilePath("chat", false, messageId);
+    let coverPath = null;
+    fs.copyFileSync(filePath, savePath);
+    //生成缩略图。图片(fileType==2)不需要ffmpeg，所以检查放在这个分支里面，
+    //没装ffmpeg的人至少还能正常发图片
+    if (fileType != 2) {
+        assertFFmpegReady();
+        //判断视频格式
+        let command = `${getFFprobePath()} -v error -select_streams v:0 -show_entries stream=codec_name "${filePath}"`
+        let result = await execCommand(command);
+        result = result.replaceAll("\r\n", "");
+        result = result.substring(result.indexOf("=") + 1);
+        let codec = result.substring(0, result.indexOf("["));
+        if ("hevc" === codec) {
+            command = `${ffmpegPath}  -y -i "${filePath}" -c:v libx264 -crf 20 "${savePath}"`;
             await execCommand(command);
         }
-        //上传文件
-        uploadFile(messageId, savePath, coverPath);
-        resolve();
-    });
+        //生成缩略图
+        coverPath = savePath + cover_image_suffix;
+        command = `${ffmpegPath} -i "${savePath}" -y -vframes 1 -vf "scale=min(170\\,iw*min(170/iw\\,170/ih)):min(170\\,ih*min(170/iw\\,170/ih))" "${coverPath}"`
+        await execCommand(command);
+    }
+    //上传文件
+    uploadFile(messageId, savePath, coverPath);
 }
 
 const uploadFile = (messageId, savePath, coverPath) => {
@@ -106,33 +125,33 @@ const uploadFile = (messageId, savePath, coverPath) => {
         });
 }
 
-const createCover = (filePath) => {
-    return new Promise(async (resolve, reject) => {
-        let ffmpegPath = getFFmegPath();
-        let avatarPath = await getLocalFilePath("avatar", false, store.getUserId() + "_temp");
-        let command = `${ffmpegPath} -i "${filePath}" "${avatarPath}" -y`
-        await execCommand(command);
+const createCover = async (filePath) => {
+    assertFFmpegReady();
+    let ffmpegPath = getFFmegPath();
+    let avatarPath = await getLocalFilePath("avatar", false, store.getUserId() + "_temp");
+    let command = `${ffmpegPath} -i "${filePath}" "${avatarPath}" -y`
+    await execCommand(command);
 
-        let coverPath = await getLocalFilePath("avatar", false, store.getUserId() + "_temp_cover");
-        command = `${ffmpegPath} -i "${filePath}" -y -vframes 1 -vf "scale=min(60\\,iw*min(60/iw\\,60/ih)):min(60\\,ih*min(60/iw\\,60/ih))" "${coverPath}"`
-        await execCommand(command);
+    let coverPath = await getLocalFilePath("avatar", false, store.getUserId() + "_temp_cover");
+    command = `${ffmpegPath} -i "${filePath}" -y -vframes 1 -vf "scale=min(60\\,iw*min(60/iw\\,60/ih)):min(60\\,ih*min(60/iw\\,60/ih))" "${coverPath}"`
+    await execCommand(command);
 
-        resolve({
-            avatarStream: fs.readFileSync(avatarPath),
-            coverStream: fs.readFileSync(coverPath),
-        });
-    });
-
+    return {
+        avatarStream: fs.readFileSync(avatarPath),
+        coverStream: fs.readFileSync(coverPath),
+    };
 }
 
 const execCommand = (command) => {
     return new Promise((resolve, reject) => {
         exec(command, (error, stdout, stderr) => {
-            console.log("ffmpeg命令:", command);
             if (error) {
-                console.error('执行命令失败', error);
+                //以前这里出错也照样resolve，于是后面读一个没生成出来的文件，
+                //异常又被吞在Promise执行器里，最终表现是界面一直转圈没有任何提示
+                console.error("ffmpeg命令执行失败:", command, error);
+                reject(new Error(`ffmpeg 执行失败：${stderr || error.message}`));
+                return;
             }
-            console.log("ffmpeg命令:", command, stdout);
             resolve(stdout);
         });
     })

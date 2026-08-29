@@ -151,11 +151,17 @@ mychat/
 ├── easychat-java/                    # 后端 Spring Boot 服务
 │   ├── src/main/java/com/easychat/
 │   │   ├── ai/                       # AI Agent 层
-│   │   │   ├── AiAgentDefinition     #   助手定义（id/昵称/人设）
+│   │   │   ├── AiAgentDefinition     #   助手定义（id/昵称/人设/能力描述）
 │   │   │   ├── AiAgentRegistry       #   注册表 + @提及解析
-│   │   │   ├── AiAgentInitializer    #   启动时写入 user_info
+│   │   │   ├── AiAgentInitializer    #   启动时写入 user_info 并生成头像
 │   │   │   ├── ChatAgentTools        #   暴露给模型的业务工具
-│   │   │   └── AiToolFactory         #   按次构造工具实例
+│   │   │   ├── AiToolFactory         #   按次构造工具实例
+│   │   │   ├── AiStreamPusher        #   流式片段推送（单聊/群聊/流水线共用）
+│   │   │   ├── AiWorkflowEngine      #   多 Agent 流水线状态机
+│   │   │   ├── AiTaskControl         #   任务登记与停止（标记位 + 线程中断）
+│   │   │   ├── ToolBudget            #   工具调用熔断（次数/时限/重复检测）
+│   │   │   ├── CoderWorkspace        #   代码沙箱，所有安全边界收在这里
+│   │   │   └── CoderTools            #   编码 Agent 的读写编译工具集
 │   │   ├── controller/               # REST API 控制器
 │   │   ├── service/                  # 业务逻辑层
 │   │   │   ├── AiChatService         #   对话服务（阻塞 / 流式 / 无记忆）
@@ -168,9 +174,11 @@ mychat/
 │   │   ├── entity/                   # 实体类 & DTO
 │   │   └── mappers/                  # MyBatis Mapper
 │   └── src/main/resources/
-│       ├── application.properties   # 数据库/Redis/端口等基础设施配置
-│       └── application.yml          # AI 配置（中文必须放这里，见下文）
+│   │       ├── application.properties  # 数据库/Redis/端口等基础设施配置
+│   │       └── application.yml         # AI 配置（中文必须放这里，见下文）
+│   └── src/test/java/com/easychat/ai/   # 单元测试
 ├── easychat-front/                   # 前端 Electron + Vue 3 桌面应用
+│   ├── assets/                       # ⚠️ ffmpeg.exe / ffprobe.exe 需自行下载
 │   └── src/
 │       ├── main/                     # Electron 主进程（含 WebSocket 客户端）
 │       ├── renderer/                 # Vue 3 渲染进程
@@ -182,42 +190,80 @@ mychat/
 
 ## 本地部署
 
-### 环境要求
+从零跑起来大概 15 分钟。**IM 功能不需要任何 AI 配置就能用**，AI 部分可以之后再配。
 
-| 依赖 | 版本 |
-|------|------|
-| JDK | 17+ |
-| Maven | 3.8+ |
-| Node.js | 16+ |
-| MySQL | 5.7+ / 8.0+ |
-| Redis | 6.0+ |
+### 0. 环境要求
 
-### 1. 初始化数据库
+| 依赖 | 版本 | 检查命令 |
+|------|------|----------|
+| JDK | 17+ | `java -version` |
+| Maven | 3.8+ | `mvn -v` |
+| Node.js | 16+ | `node -v` |
+| MySQL | 5.7+ / 8.0+ | `mysql --version` |
+| Redis | 6.0+ | `redis-cli ping` → 返回 `PONG` |
+
+不需要邮件服务器，注册不发验证码。
+
+### 1. 克隆并补齐 ffmpeg
+
+```bash
+git clone https://github.com/Cqusts/mychat.git
+cd mychat
+```
+
+⚠️ **`easychat-front/assets/` 下缺两个二进制文件，需要自己下载**：`ffmpeg.exe`、`ffprobe.exe`。
+它们几十 MB，不适合进版本库。缺了会导致**上传头像和发送视频报错**，文字、图片、AI 功能不受影响。
+
+下载地址和放置方法见 [easychat-front/assets/README.md](easychat-front/assets/README.md)。
+想先跑起来的话这一步可以跳过。
+
+### 2. 建库导表
 
 ```bash
 mysql -u root -p -e "CREATE DATABASE easychat CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
 mysql -u root -p easychat < easychat.sql
 ```
 
-### 2. 配置后端
+导完应该有 9 张表。确认一下：
 
-基础设施配置在 `easychat-java/src/main/resources/application.properties`：
-
-```properties
-# 数据库连接
-spring.datasource.url=jdbc:mysql://127.0.0.1:3306/easychat?serverTimezone=GMT%2B8&useUnicode=true&characterEncoding=utf8
-spring.datasource.username=root
-spring.datasource.password=你的密码
-
-# Redis
-spring.data.redis.host=127.0.0.1
-spring.data.redis.port=6379
-
-# 文件存储目录
-project.folder=D:/easychat/
+```bash
+mysql -u root -p -e "USE easychat; SHOW TABLES;"
 ```
 
-AI 配置在同目录的 `application.yml`（不配置则 AI 功能不可用，IM 部分不受影响）：
+### 3. 配置连接信息
+
+**所有敏感配置都走环境变量**，代码里只留占位默认值，不用改任何文件就能跑：
+
+| 环境变量 | 默认值 | 说明 |
+|----------|--------|------|
+| `MYSQL_HOST` | `127.0.0.1` | |
+| `MYSQL_PORT` | `3306` | |
+| `MYSQL_DATABASE` | `easychat` | |
+| `MYSQL_USER` | `root` | |
+| `MYSQL_PASSWORD` | `root` | **和你本地不一样就必须设** |
+| `REDIS_HOST` | `127.0.0.1` | |
+| `REDIS_PORT` | `6379` | |
+| `EASYCHAT_HOME` | `D:/easychat/` | 服务端文件目录（头像、图片、视频、日志），**必须可写**；Linux/macOS 必须改 |
+| `ADMIN_EMAILS` | `admin@example.com` | 用这个邮箱注册的账号能进管理后台 |
+| `EASYCHAT_AI_API_KEY` | — | 大模型 API Key，不配则 AI 功能不可用 |
+
+```bash
+# Windows（setx 是永久生效，设完必须重开终端；IDE 也要重启才能读到）
+setx MYSQL_PASSWORD "你的密码"
+setx EASYCHAT_AI_API_KEY "sk-xxxx"
+
+# Linux / macOS
+export MYSQL_PASSWORD="你的密码"
+export EASYCHAT_HOME="$HOME/easychat/"
+export EASYCHAT_AI_API_KEY="sk-xxxx"
+```
+
+不想用环境变量的话，直接改 `easychat-java/src/main/resources/application.properties`
+里的默认值也行——**但别把真密码提交回 git**。
+
+### 4. 配置大模型（可选，跳过则只有 IM 功能）
+
+AI 配置在 `easychat-java/src/main/resources/application.yml`：
 
 ```yaml
 spring:
@@ -231,62 +277,61 @@ spring:
           model: "deepseek-chat"
 ```
 
-**API Key 建议走环境变量**，`application.yml` 是提交进 git 的，真 key 写在里面会跟着推到远端：
+支持任何 OpenAI 兼容协议的服务商，换厂商只改这两行：
 
-```bash
-# Windows（设完要重开终端）
-setx EASYCHAT_AI_API_KEY "sk-xxxx"
+| 服务商 | base-url | model | 备注 |
+|--------|----------|-------|------|
+| DeepSeek | `https://api.deepseek.com` | `deepseek-chat` | 便宜，本项目默认 |
+| OpenAI | `https://api.openai.com` | `gpt-4o-mini` | |
+| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode` | `qwen-turbo` | |
+| 智谱 GLM | `https://open.bigmodel.cn/api/paas` | `glm-4-flash` | 有免费额度 |
 
-# Linux / macOS
-export EASYCHAT_AI_API_KEY="sk-xxxx"
-```
+没配 key 时启动日志里会有一整块醒目的报错提示，所有 AI 对话都回复"AI助手暂时无法回复"，
+IM 功能照常。
 
-没配 key 时启动日志里会有明显的报错块，所有 AI 对话都会回复"AI助手暂时无法回复"。
+> 工具调用依赖模型自身的 Function Calling 能力。换到不支持的模型时把
+> `ai.chat.tools.enabled` 设为 `false`，会退回纯对话模式。
 
-> **为什么 AI 配置单独放 yml**：Spring Boot 的 `OriginTrackedPropertiesLoader` 写死用 ISO-8859-1 读 `.properties`（遵循 `java.util.Properties` 规范），中文写在 `.properties` 里一定会变成乱码，且没有任何配置项能改这个行为。助手昵称、人设、能力说明都是中文，所以整块 AI 配置放在 yml —— SnakeYAML 默认按 UTF-8 读。编辑时确保编辑器保存为 UTF-8。
+> **为什么 AI 配置单独放 yml**：Spring Boot 的 `OriginTrackedPropertiesLoader` 写死用
+> ISO-8859-1 读 `.properties`（遵循 `java.util.Properties` 规范），中文写在 `.properties`
+> 里一定变成乱码，且没有任何配置项能改这个行为。助手昵称、人设、能力说明都是中文，
+> 所以整块 AI 配置放在 yml —— SnakeYAML 默认按 UTF-8 读。编辑时确保保存为 UTF-8。
 
-支持的 AI 服务商：
-
-| 服务商 | base-url | model |
-|--------|----------|-------|
-| OpenAI | `https://api.openai.com` | gpt-3.5-turbo / gpt-4o |
-| DeepSeek | `https://api.deepseek.com` | deepseek-chat |
-| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode` | qwen-turbo |
-| 智谱 GLM | `https://open.bigmodel.cn/api/paas` | glm-4-flash |
-
-> 工具调用依赖模型本身的 Function Calling 能力。换到不支持的模型时把 `ai.chat.tools.enabled` 设为 `false`，会退回纯对话模式。
-
-### 3. 启动后端
+### 5. 启动后端
 
 ```bash
 cd easychat-java
 mvn clean package -DskipTests
+java -jar target/easychat-1.0.jar
+```
 
-# Windows：先切UTF-8代码页，否则控制台里的中文日志是乱码
+Windows 控制台如果中文是乱码，先切代码页：
+
+```bat
 chcp 65001
 java -jar target/easychat-1.0.jar
-
-# Linux / macOS
-java -jar target/easychat-1.0.jar
 ```
 
-> 不想改代码页的话，用 `java -DLOG_CONSOLE_CHARSET=GBK -jar target/easychat-1.0.jar` 也行。
-> 日志文件 `{project.folder}/logs/easychat.log` 始终是 UTF-8，任何情况下都可以直接看。
+> 不想改代码页就用 `java -DLOG_CONSOLE_CHARSET=GBK -jar target/easychat-1.0.jar`。
+> 日志文件 `{EASYCHAT_HOME}/logs/easychat.log` 始终是 UTF-8，任何情况下都能直接看。
 
-启动成功后：
-
-- HTTP API：`http://localhost:5050/api`
-- WebSocket：`ws://localhost:5051/ws`
-
-启动日志里应该能看到助手账号被创建：
+启动成功的标志：
 
 ```
+HTTP  →  http://localhost:5050/api
+WS    →  ws://localhost:5051/ws
+```
+
+配了 AI 的话，日志里还能看到助手账号被创建：
+
+```
+AI助手已创建: 智能助手小E(Urobot)
 AI助手已创建: 产品经理小P(Uagentpm)
 AI助手已创建: 架构师小A(Uagentarch)
-AI助手已创建: 测试工程师小T(Uagentqa)
+...
 ```
 
-### 4. 启动前端
+### 6. 启动前端
 
 ```bash
 cd easychat-front
@@ -294,7 +339,19 @@ npm install
 npm run dev
 ```
 
-### 5. 打包桌面客户端（可选）
+> `npm install` 在国内容易卡在下载 Electron 二进制上，可以先设镜像：
+> ```bash
+> npm config set electron_mirror https://npmmirror.com/mirrors/electron/
+> ```
+> 安装过程中关于 `msvs_version` 的告警可以忽略，不影响运行。
+
+### 7. 验证
+
+1. 客户端起来后点「注册」，随便填个邮箱和密码（不发验证码，填了就能用）
+2. 登录进去，左侧导航能看到「AI 助手」入口
+3. 配了 AI Key 的话，通讯录里会有「智能助手小E」，直接跟它说句话试试
+
+### 8. 打包桌面客户端（可选）
 
 ```bash
 npm run build:win     # Windows
@@ -302,7 +359,22 @@ npm run build:mac     # macOS
 npm run build:linux   # Linux
 ```
 
-产物在 `easychat-front/installPackages/` 目录下。
+产物在 `easychat-front/installPackages/`。
+
+## 常见问题
+
+| 现象 | 原因 | 解决 |
+|------|------|------|
+| 启动报 `Access denied for user 'root'` | 数据库密码不对 | 设 `MYSQL_PASSWORD` 环境变量，Windows 上 `setx` 之后要重开终端/IDE |
+| 启动报 `Unable to connect to Redis` | Redis 没起 | `redis-server` 启动，`redis-cli ping` 确认返回 `PONG` |
+| 启动报 `Table 'easychat.xxx' doesn't exist` | SQL 没导 | 回到第 2 步，确认 9 张表都在 |
+| 上传头像一直转圈 / 报「缺少 ffmpeg 组件」 | 没放 ffmpeg | 见第 1 步 |
+| 控制台中文乱码 | Windows 控制台默认 GBK | `chcp 65001`，或看日志文件 |
+| 通讯录里没有机器人 | 没配 AI Key，助手账号没创建 | 配好 Key 重启后端，账号会自动建 |
+| AI 回复「暂时无法回复」 | Key 无效 / 余额不足 / base-url 不对 | 看后端日志里的具体报错 |
+| 群里 @ 助手没反应 | 助手不在群里 | 群详情 → 助手 → 把它拉进群 |
+| 发消息报 `Data too long for column 'message_content'` | 老库没升级 | 见下面「升级已有数据库」 |
+| 前端连不上后端 | 端口被占 / 防火墙 | 确认 5050 和 5051 都通 |
 
 ## 试用 AI 功能
 
@@ -391,13 +463,25 @@ npm run build:linux   # Linux
 ```yaml
 ai:
   coder:
-    enabled: true                            # 默认 false
-    workspace: "D:/easychat-ai-workspace"    # ⚠️ 独立目录，不要指向你自己的仓库
-    source-repo: "D:/JavaProject/mychat"     # 用来读 origin 地址
+    enabled: true                                   # 默认 false
+    # ⚠️ 独立目录，绝对不要指向你自己的仓库——AI 改一半和你手上的改动搅在一起会很难收拾
+    workspace: "${EASYCHAT_AI_WORKSPACE:D:/easychat-ai-workspace}"
+    git-url: "https://github.com/你的账号/你fork的仓库.git"
+    base-branch: "${EASYCHAT_BASE_BRANCH:main}"     # 从哪个分支拉出来改
 ```
 
-前置条件：`git` 和 `mvn` 在 PATH 里（不在就填 `ai.coder.git-command` / `maven-command` 的绝对路径），
-且 git 能免密推送（配好 SSH key 或 credential helper），否则推送会卡住。
+`git-url` 留空时会退而从 `source-repo`（一个本地仓库目录）读 origin 地址，两者配一个即可。
+
+前置条件：
+
+- `git` 和 `mvn` 在**服务端进程**的 PATH 里。注意 IDE 启动的进程不一定继承你终端的 PATH，
+  不确定就直接填绝对路径（Windows 上 maven 要写 `mvn.cmd`）：
+  ```yaml
+  maven-command: "D:/apache-maven-3.9.6/bin/mvn.cmd"
+  git-command: "git"
+  ```
+  编码阶段开始前会先探测这两个命令，不通会直接停在这一步并说明原因。
+- git 能免密推送（SSH key 或 credential helper 配好），否则推送会卡住。
 
 安全边界都在 `CoderWorkspace` 一个类里：
 
@@ -477,3 +561,28 @@ MySQL 严格模式下直接抛 `Data too long`，表现就是"群里凭空少了
 - RAG 知识库：复用已有的文件上传能力，让助手能基于用户发来的文档回答问题
 - 群聊场景的工具授权模型
 - 助手主动发起消息（定时任务、长任务完成通知）
+- 流水线的评测集：跑一批需求，统计任务完成率、平均返工轮次、编译一次通过率
+
+## 参与贡献
+
+欢迎提 Issue 和 PR。改动后端记得跑一遍测试：
+
+```bash
+cd easychat-java
+mvn -DskipTests=false test
+```
+
+> `pom.xml` 里 `skipTests` 默认是 `true`，不显式覆盖的话测试会被直接跳过、
+> 结果永远是"成功"。
+
+## 致谢与许可
+
+本项目的 IM 基础框架（Netty 长连接、消息广播、好友群组体系、Electron 客户端）
+源自 **程序员老罗** 的开源教学项目
+[EasyChat](https://space.bilibili.com/499388891)，在此致谢。
+
+在此基础上，本仓库新增的部分主要是 `easychat-java/src/main/java/com/easychat/ai/`
+下的 AI Agent 层、多 Agent 编排引擎、代码沙箱，以及前端的流式渲染、@提及选择器、
+AI 助手页。
+
+> **许可**：仓库暂未附带 LICENSE 文件。二次分发或商用前，请先确认原教学项目的授权条款。

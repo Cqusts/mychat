@@ -30,7 +30,9 @@ public class TokenGenerator {
         String redisUrl = p.get("redis-url", "redis://localhost:6379");
         String dbUrl = p.get("db-url", "jdbc:mysql://127.0.0.1:3306/easychat?useUnicode=true&characterEncoding=utf8");
         String dbUser = p.get("db-user", "root");
-        String dbPassword = p.get("db-password", "111111");
+        //默认值别写成某台机器上的真实密码，优先读环境变量
+        String dbPassword = p.get("db-password",
+                System.getenv().getOrDefault("MYSQL_PASSWORD", "root"));
         int count = p.getInt("count", 5000);
         String output = p.get("output", "tokens.txt");
 

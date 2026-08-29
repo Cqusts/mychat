@@ -1,4 +1,6 @@
 node_modules/
+# ffmpeg/ffprobe 是几十MB的二进制，不进版本库。
+# 使用者需要自己下载，说明见 easychat-front/assets/README.md
 easychat-front/assets/ffmpeg.exe
 easychat-front/assets/ffprobe.exe
 
