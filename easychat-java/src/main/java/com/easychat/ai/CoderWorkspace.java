@@ -157,6 +157,40 @@ public class CoderWorkspace {
     }
 
     /**
+     * 开工前先确认 git 和 mvn 真的能跑起来。
+     *
+     * 不做这一步的代价是实打实踩过的：机器上没装 mvn，compile 工具返回
+     * "命令无法执行"，模型看不懂这不是它能修的问题，反复搜"怎么编译"，
+     * 同一个 searchCode 刷了一千七百多次，只能重启服务端才停下来。
+     * 环境问题就该在环境这一层拦掉，不要交给模型去猜。
+     *
+     * @return 没问题返回null，否则返回一句能直接发给用户的说明
+     */
+    public String checkToolchain() {
+        String gitProblem = probe(gitCommand, "--version", "ai.coder.git-command");
+        if (gitProblem != null) {
+            return gitProblem;
+        }
+        return probe(mavenCommand, "-v", "ai.coder.maven-command");
+    }
+
+    private String probe(String command, String versionArg, String configKey) {
+        try {
+            ExecResult result = exec(rootFile().isDirectory() ? rootFile() : new File("."),
+                    Arrays.asList(command, versionArg));
+            if (result.success()) {
+                return null;
+            }
+            return "`" + command + " " + versionArg + "` 执行失败：" + trimOutput(result.output);
+        } catch (Exception e) {
+            return "找不到命令 `" + command + "`，请把它加进服务端进程的 PATH，"
+                    + "或者在配置里把 " + configKey + " 填成绝对路径"
+                    + "（Windows 例：D:/apache-maven-3.9.6/bin/mvn.cmd）。"
+                    + "注意 IDE 启动的进程不一定继承你终端里的 PATH，改完要重启服务端。";
+        }
+    }
+
+    /**
      * 编译后端。这是整条编码链路里最关键的一环——
      * 没有编译反馈，模型产出的Java基本编不过
      */

@@ -104,6 +104,13 @@ ai:
     maven-command: "mvn"
     git-command: "git"
     # 单条命令的超时，mvn compile 首次要下依赖会比较久
+    # 单轮最多允许模型调多少次工具。踩过的坑：机器上没装mvn，
+    # compile返回"命令无法执行"，模型看不懂这不是它能修的，
+    # 反复 searchCode("mvn") 刷了一千七百多次，只能重启服务端才停下来
+    max-tool-calls: 60
+    # 单轮的墙钟时限（分钟）。流的timeout管的是"两个分片之间的间隔"，
+    # 只要工具一直有产出就永远不触发，挡不住原地打转，所以这条线要单独划
+    stage-deadline-minutes: 20
     command-timeout-seconds: 600
     # 编码这一轮模型的整体超时：要反复搜索、读文件、编译，比聊天久得多
     agent-timeout-seconds: 900

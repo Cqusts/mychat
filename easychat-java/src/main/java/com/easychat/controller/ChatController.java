@@ -7,11 +7,14 @@ import com.easychat.entity.dto.MessageSendDto;
 import com.easychat.entity.dto.TokenUserInfoDto;
 import com.easychat.entity.enums.MessageTypeEnum;
 import com.easychat.entity.enums.ResponseCodeEnum;
+import com.easychat.ai.AiWorkflowEngine;
 import com.easychat.entity.po.ChatMessage;
+import com.easychat.entity.po.UserContact;
 import com.easychat.entity.vo.ResponseVO;
 import com.easychat.exception.BusinessException;
 import com.easychat.service.ChatMessageService;
 import com.easychat.service.ChatSessionUserService;
+import com.easychat.service.UserContactService;
 import com.easychat.utils.StringTools;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
@@ -51,6 +54,50 @@ public class ChatController extends ABaseController {
 
     @Resource
     private AppConfig appConfig;
+
+    @Resource
+    private UserContactService userContactService;
+
+    @Resource
+    private AiWorkflowEngine aiWorkflowEngine;
+
+    /**
+     * 停掉群里正在跑的AI需求流水线。
+     *
+     * 模型陷在工具循环里是真的会停不下来的，之前只能重启服务端，
+     * 所以这个入口是必需的而不是锦上添花
+     */
+    @RequestMapping("/stopAiTask")
+    @GlobalInterceptor
+    public ResponseVO stopAiTask(HttpServletRequest request, @NotEmpty String contactId) {
+        TokenUserInfoDto tokenUserInfoDto = getTokenUserInfo(request);
+        checkGroupMember(tokenUserInfoDto.getUserId(), contactId);
+        int stopped = aiWorkflowEngine.stopGroupTasks(contactId, tokenUserInfoDto.getUserId());
+        logger.info("用户请求停止AI任务, userId:{}, groupId:{}, 停掉{}个",
+                tokenUserInfoDto.getUserId(), contactId, stopped);
+        return getSuccessResponseVO(stopped);
+    }
+
+    /**
+     * 群里有没有在跑的流水线。切换会话时查一次，避免刷新后按钮消失
+     */
+    @RequestMapping("/queryAiTaskRunning")
+    @GlobalInterceptor
+    public ResponseVO queryAiTaskRunning(HttpServletRequest request, @NotEmpty String contactId) {
+        TokenUserInfoDto tokenUserInfoDto = getTokenUserInfo(request);
+        checkGroupMember(tokenUserInfoDto.getUserId(), contactId);
+        return getSuccessResponseVO(aiWorkflowEngine.hasRunningTask(contactId));
+    }
+
+    /**
+     * 只有群成员能停群里的任务。不校验的话，知道群号就能把别人的任务掐了
+     */
+    private void checkGroupMember(String userId, String contactId) {
+        UserContact contact = userContactService.getUserContactByUserIdAndContactId(userId, contactId);
+        if (contact == null) {
+            throw new BusinessException(ResponseCodeEnum.CODE_600);
+        }
+    }
 
 
     @RequestMapping("/sendMessage")

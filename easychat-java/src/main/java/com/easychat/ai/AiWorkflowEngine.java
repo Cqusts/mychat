@@ -79,6 +79,12 @@ public class AiWorkflowEngine {
      */
     private static final int MAX_ERROR_EXCERPT = 800;
 
+    @Value("${ai.coder.max-tool-calls:60}")
+    private Integer maxToolCalls;
+
+    @Value("${ai.coder.stage-deadline-minutes:20}")
+    private Integer stageDeadlineMinutes;
+
     @Value("${ai.workflow.enabled:true}")
     private Boolean workflowEnabled;
 
@@ -135,6 +141,9 @@ public class AiWorkflowEngine {
 
     @Resource(name = "aiTaskExecutor")
     private ThreadPoolTaskExecutor aiTaskExecutor;
+
+    @Resource
+    private AiTaskControl aiTaskControl;
 
     /**
      * ChatMessageService要用本引擎、本引擎又要用它，构成循环依赖，用@Lazy注入代理打破。
@@ -205,11 +214,13 @@ public class AiWorkflowEngine {
         task.setCreateTime(System.currentTimeMillis());
         saveTask(task);
 
+        aiTaskControl.register(task.getTaskId(), groupId, requester.getUserId());
         try {
             aiTaskExecutor.execute(() -> runTask(task.getTaskId()));
             logger.info("需求流水线已启动, taskId:{}, groupId:{}, 需求:{}",
                     task.getTaskId(), groupId, requirement);
         } catch (TaskRejectedException e) {
+            aiTaskControl.finish(task.getTaskId());
             logger.warn("AI线程池已满，流水线启动失败, groupId:{}", groupId);
             postAgentMessage(entryAgent, groupId, "现在活儿有点多，这个需求先没接住，过会儿再@我一次。");
         }
@@ -231,12 +242,45 @@ public class AiWorkflowEngine {
     }
 
     /**
+     * 停掉某个群里正在跑的流水线。
+     *
+     * 真正的收尾（发消息、改状态）由任务线程自己在察觉到取消后完成，
+     * 这里只负责置标记和中断——不然会出现两个线程同时往群里发收尾消息
+     *
+     * @return 停掉了几个任务
+     */
+    public int stopGroupTasks(String groupId, String operatorId) {
+        return aiTaskControl.cancelByGroup(groupId, operatorId);
+    }
+
+    /**
+     * 这个群里有没有正在跑的流水线，前端据此决定显不显示停止按钮
+     */
+    public boolean hasRunningTask(String groupId) {
+        return !aiTaskControl.runningInGroup(groupId).isEmpty();
+    }
+
+    /**
      * 状态机主循环。整个任务跑在一个线程池线程上，
      * 每个阶段都是一次阻塞的模型调用，所以一个任务可能占住线程好几分钟
      */
     private void runTask(String taskId) {
+        //把当前线程登记上去，用户点停止时才有东西可中断
+        aiTaskControl.bindWorker(taskId);
+        try {
+            loopStages(taskId);
+        } finally {
+            aiTaskControl.finish(taskId);
+        }
+    }
+
+    private void loopStages(String taskId) {
         AiWorkflowTaskDto task = loadTask(taskId);
         while (task != null) {
+            if (aiTaskControl.isCancelled(taskId)) {
+                abortByUser(task);
+                return;
+            }
             AiWorkflowStageEnum stage;
             try {
                 stage = AiWorkflowStageEnum.valueOf(task.getStage());
@@ -264,6 +308,52 @@ public class AiWorkflowEngine {
                     //DONE / FAILED
                     return;
             }
+        }
+    }
+
+    /**
+     * 每个阶段一套独立预算：这一轮调爆了不影响下一轮
+     */
+    private CoderTools newCoderTools(AiWorkflowTaskDto task) {
+        return new CoderTools(coderWorkspace, null,
+                new ToolBudget(aiTaskControl, task.getTaskId(), maxToolCalls, stageDeadlineMinutes));
+    }
+
+    private boolean cancelled(AiWorkflowTaskDto task) {
+        return aiTaskControl.isCancelled(task.getTaskId());
+    }
+
+    /**
+     * 用户点了停止之后的收尾。
+     *
+     * 第一件事是把线程的中断状态清掉：停止是靠 interrupt 兜底的，
+     * 而中断可能正好落在Redis或HTTP调用上，不清掉的话连"已停止"这条消息都发不出去，
+     * 用户会看到点了没反应
+     */
+    private void abortByUser(AiWorkflowTaskDto task) {
+        Thread.interrupted();
+        String stageDesc = stageDescOf(task.getStage());
+        task.setStage(AiWorkflowStageEnum.CANCELLED.name());
+        try {
+            saveTask(task);
+        } catch (Exception e) {
+            logger.warn("停止后保存任务状态失败, taskId:{}", task.getTaskId(), e);
+        }
+        TokenUserInfoDto entryAgent = tokenOf(requirementAgentId);
+        if (entryAgent != null) {
+            postAgentMessage(entryAgent, task.getGroupId(),
+                    atRequester(task) + "已停止。需求「" + task.getRequirement() + "」的流程停在【"
+                            + stageDesc + "】，没有提交也没有推送任何代码。"
+                            + "想继续的话重新@我提一次。");
+        }
+        logger.info("流水线被用户停止, taskId:{}, 停在:{}", task.getTaskId(), stageDesc);
+    }
+
+    private String stageDescOf(String stage) {
+        try {
+            return AiWorkflowStageEnum.valueOf(stage).getDesc();
+        } catch (Exception e) {
+            return stage;
         }
     }
 
@@ -409,6 +499,20 @@ public class AiWorkflowEngine {
      */
     private AiWorkflowTaskDto runCoding(AiWorkflowTaskDto task) {
         AiAgentDefinition agent = aiAgentRegistry.getById(codingAgentId);
+
+        //环境问题在环境这一层拦掉。交给模型去猜的代价是实打实踩过的：
+        //机器上没有mvn，它反复搜"怎么编译"刷了一千七百多次工具调用才被人工掐断
+        String toolchainProblem = coderWorkspace.checkToolchain();
+        if (toolchainProblem != null) {
+            logger.error("编码环境不可用, taskId:{}, 原因:{}", task.getTaskId(), toolchainProblem);
+            task.setStage(AiWorkflowStageEnum.FAILED.name());
+            saveTask(task);
+            postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
+                    atRequester(task) + "方案评审通过了，但编码环节起不来：" + toolchainProblem
+                            + "\n流程停在这里，没有动任何代码。");
+            return null;
+        }
+
         String branch = "ai/task-" + task.getTaskId().substring(0, 8);
         task.setCodeBranch(branch);
 
@@ -420,7 +524,7 @@ public class AiWorkflowEngine {
         }
 
         TokenUserInfoDto agentToken = tokenOf(codingAgentId);
-        CoderTools tools = new CoderTools(coderWorkspace, null);
+        CoderTools tools = newCoderTools(task);
 
         //这一步要读文件、改文件、跑maven，动辄好几分钟，
         //群里不说一声的话看起来就像流程卡死了
@@ -446,6 +550,11 @@ public class AiWorkflowEngine {
                 + "请按方案改代码。";
 
         String output = callAgent(agent, task, systemPrompt, userPrompt, tools, coderTimeoutSeconds);
+        //停止之后绝不能继续走到提交推送，所以这里要在编译和push之前拦一道
+        if (cancelled(task)) {
+            abortByUser(task);
+            return null;
+        }
         if (output == null) {
             return failTask(task, "编码阶段调用失败");
         }
@@ -463,10 +572,13 @@ public class AiWorkflowEngine {
             task.setStage(AiWorkflowStageEnum.FAILED.name());
             task.setCodePushed(false);
             saveTask(task);
+            String why = tools.getBudget().isStopped()
+                    ? "本轮被熔断了（" + tools.getBudget().getStopReason() + "，共"
+                            + tools.getBudget().getCalls() + "次工具调用），多半是它卡在了某个解不开的问题上。"
+                    : "助手一共调用了" + tools.getChangedFileCount() + "次写文件工具，"
+                            + "通常是方案还不够具体，或者它没定位到该改的文件。";
             postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
-                    atRequester(task) + "编码环节没有产生任何代码改动，流程停在这里。"
-                            + "助手一共调用了" + tools.getChangedFileCount() + "次写文件工具，"
-                            + "通常是方案还不够具体，或者它没定位到该改的文件。");
+                    atRequester(task) + "编码环节没有产生任何代码改动，流程停在这里。" + why);
             return null;
         }
 
@@ -528,7 +640,7 @@ public class AiWorkflowEngine {
      */
     private AiWorkflowTaskDto runTesting(AiWorkflowTaskDto task) {
         AiAgentDefinition agent = aiAgentRegistry.getById(testingAgentId);
-        CoderTools tools = new CoderTools(coderWorkspace, null);
+        CoderTools tools = newCoderTools(task);
 
         String systemPrompt = personaOf(agent)
                 + "\n你现在在一条需求流水线上工作，负责【测试验证】这一环。"
@@ -550,6 +662,10 @@ public class AiWorkflowEngine {
                 + "请补充测试并验证。";
 
         String output = callAgent(agent, task, systemPrompt, userPrompt, tools, coderTimeoutSeconds);
+        if (cancelled(task)) {
+            abortByUser(task);
+            return null;
+        }
         boolean testsOk = false;
         try {
             CoderWorkspace.ExecResult result = coderWorkspace.runTests();

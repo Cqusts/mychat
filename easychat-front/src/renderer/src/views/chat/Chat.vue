@@ -35,6 +35,11 @@
           >({{ currentChatSession.memberCount }})</span
           >
         </div>
+        <!-- 助手陷在工具循环里是真的会停不下来的，之前只能重启服务端 -->
+        <div class="ai-stop no-drag" v-if="aiTaskRunning" @click="stopAiTask">
+          <span class="ai-stop-dot"></span>
+          AI 运行中，点击停止
+        </div>
       </div>
       <div
         v-if="currentChatSession.contactType == 1"
@@ -177,6 +182,48 @@ const messageSendRef = ref()
 //是否正在加载消息
 const loadingMessage = ref(false)
 
+//群里有没有在跑的AI流水线，决定标题栏那个停止按钮显不显示
+const aiTaskRunning = ref(false)
+
+//切会话、流结束时各查一次。不做轮询：流水线一个阶段结束才会问一次，
+//五六个阶段总共几次请求，比定时轮询省得多，状态也够准
+const refreshAiTaskRunning = async () => {
+  const session = currentChatSession.value
+  if (!session || session.contactType != 1) {
+    aiTaskRunning.value = false
+    return
+  }
+  const contactId = session.contactId
+  let result = await proxy.Request({
+    url: proxy.Api.queryAiTaskRunning,
+    params: { contactId },
+    showLoading: false,
+    showError: false
+  })
+  //查的过程中用户可能已经切走了，结果就不能再往当前会话上套
+  if (!result || currentChatSession.value.contactId !== contactId) {
+    return
+  }
+  aiTaskRunning.value = result.data === true
+}
+
+const stopAiTask = async () => {
+  let result = await proxy.Request({
+    url: proxy.Api.stopAiTask,
+    params: { contactId: currentChatSession.value.contactId },
+    showLoading: false
+  })
+  if (!result) {
+    return
+  }
+  aiTaskRunning.value = false
+  if (result.data > 0) {
+    proxy.Message.success('已发送停止指令，助手会在当前这一步结束后停下')
+  } else {
+    proxy.Message.warning('当前没有正在运行的任务')
+  }
+}
+
 const chatSessionClickHandler = (item) => {
   distanceBottom = 0
   currentChatSession.value = Object.assign({}, item)
@@ -194,6 +241,8 @@ const chatSessionClickHandler = (item) => {
   setSessionSelect({contactId: item.contactId, sessionId: item.sessionId})
   //清空输入框中的消息
   messageSendRef.value.cleanMessage()
+  aiTaskRunning.value = false
+  refreshAiTaskRunning()
 }
 
 const setSessionSelect = ({contactId, sessionId}) => {
@@ -226,6 +275,10 @@ const handleAiStream = (message) => {
   //不在当前会话就不渲染，流结束后那条正式消息会走常规链路更新未读数
   if (message.sessionId !== currentChatSession.value.sessionId) {
     return
+  }
+  //有流式片段就说明助手正在干活，按钮立刻可见，不用等接口返回
+  if (message.contactType == 1) {
+    aiTaskRunning.value = true
   }
   let bubble = messageList.value.find((item) => item.streamId === chunk.streamId)
   if (bubble == null) {
@@ -262,6 +315,8 @@ const handleAiStream = (message) => {
       bubble.messageContent = chunk.content
     }
     bubble.streaming = false
+    //一个阶段结束了，但整条流水线未必结束，问一次后端才知道按钮该不该收
+    refreshAiTaskRunning()
     //一个字都没吐出来就结束了（群里助手回复失败时会这样），
     //这种情况不会有正式消息来替换它，得自己把空气泡收掉
     if (!bubble.messageContent) {
@@ -715,6 +770,44 @@ const searchClickHandler = (data) => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+
+.ai-stop {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  margin-right: 34px;
+  padding: 0 12px;
+  border: 1px solid #f0a1a1;
+  border-radius: 13px;
+  background: #fdf3f3;
+  color: #c45656;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: #f9e2e2;
+  }
+
+  .ai-stop-dot {
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: #c45656;
+    animation: ai-stop-blink 1s infinite;
+  }
+}
+
+@keyframes ai-stop-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
   }
 }
 

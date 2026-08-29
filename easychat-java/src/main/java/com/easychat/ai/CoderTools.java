@@ -37,7 +37,29 @@ public class CoderTools {
      */
     private static final int MIN_ANCHOR_PREFIX = 8;
 
+    /**
+     * 单轮最多调多少次工具。踩过的坑：机器上没有mvn，compile返回"命令无法执行"，
+     * 模型看不懂这不是它能修的，反复 searchCode("mvn") 刷了一千七百多次
+     */
+    private static final int DEFAULT_MAX_TOOL_CALLS = 60;
+
+    /**
+     * 单轮的墙钟时限。流的 timeout 是"两个分片之间的间隔"，
+     * 只要工具一直在产出内容它就永远不触发，挡不住这种空转
+     */
+    private static final int DEFAULT_DEADLINE_MINUTES = 20;
+
+    /**
+     * 同一个调用（工具名+参数完全一样）重复到第几次就叫停
+     */
+    private static final int MAX_SAME_CALL = 3;
+
     private final CoderWorkspace workspace;
+
+    /**
+     * 本轮的熔断闸门。工具循环失控时靠它收场，见 guard()
+     */
+    private final ToolBudget budget;
 
     /**
      * 把"正在搜索代码…""正在编译…"推给前端，让干活过程可见
@@ -55,8 +77,28 @@ public class CoderTools {
     private final Set<String> touchedFiles = new LinkedHashSet<>();
 
     public CoderTools(CoderWorkspace workspace, AiStreamCallback callback) {
+        this(workspace, callback, new ToolBudget(null, null, DEFAULT_MAX_TOOL_CALLS, DEFAULT_DEADLINE_MINUTES));
+    }
+
+    public CoderTools(CoderWorkspace workspace, AiStreamCallback callback, ToolBudget budget) {
         this.workspace = workspace;
         this.callback = callback;
+        this.budget = budget;
+    }
+
+    /**
+     * 本轮工具调用的闸门：用户点了停止、调用次数超预算、超时、原地打转，
+     * 四种情况都在这里拦下并给模型一句明确的收尾指令。
+     *
+     * 之所以做成"返回一句话"而不是抛异常：抛异常会被 Spring AI 包成错误再喂回去，
+     * 模型多半会换个参数接着试；给一句明确的"停止调用工具、直接总结"反而收得住。
+     */
+    private String guard(String signature) {
+        String verdict = budget.check(signature);
+        if (verdict != null) {
+            logger.warn("工具调用被熔断: {} ({})", signature, verdict);
+        }
+        return verdict;
     }
 
     /**
@@ -74,10 +116,18 @@ public class CoderTools {
         return new ArrayList<>(touchedFiles);
     }
 
+    public ToolBudget getBudget() {
+        return budget;
+    }
+
     @Tool(description = "按关键词搜索项目代码，返回匹配的文件路径、行号和该行内容。改代码前先用它定位相关文件。")
     public String searchCode(
             @ToolParam(description = "要搜索的关键词，比如类名、方法名、字段名") String keyword,
             @ToolParam(required = false, description = "限定文件后缀，比如 .java 或 .vue，不填则搜全部") String extension) {
+        String blocked = guard("searchCode|" + keyword + "|" + extension);
+        if (blocked != null) {
+            return blocked;
+        }
         notify("正在搜索代码：" + keyword + "…");
         try {
             if (StringTools.isEmpty(keyword)) {
@@ -97,6 +147,10 @@ public class CoderTools {
     @Tool(description = "读取项目里某个文件的完整内容。路径是相对于仓库根目录的，比如 easychat-java/src/main/java/com/easychat/controller/GroupController.java")
     public String readFile(
             @ToolParam(description = "相对于仓库根目录的文件路径") String path) {
+        String blocked = guard("readFile|" + path);
+        if (blocked != null) {
+            return blocked;
+        }
         notify("正在读取 " + shortName(path) + "…");
         try {
             String content = workspace.readFile(path);
@@ -117,6 +171,10 @@ public class CoderTools {
             @ToolParam(description = "相对于仓库根目录的文件路径") String path,
             @ToolParam(description = "要被替换掉的原内容，要能在文件里唯一定位到") String oldText,
             @ToolParam(description = "替换后的新内容") String newText) {
+        String blocked = guard("replaceInFile|" + path + "|" + oldText);
+        if (blocked != null) {
+            return blocked;
+        }
         notify("正在修改 " + shortName(path) + "…");
         try {
             if (StringTools.isEmpty(oldText)) {
@@ -165,6 +223,10 @@ public class CoderTools {
     public String createFile(
             @ToolParam(description = "相对于仓库根目录的文件路径") String path,
             @ToolParam(description = "文件的完整内容") String content) {
+        String blocked = guard("createFile|" + path);
+        if (blocked != null) {
+            return blocked;
+        }
         notify("正在创建 " + shortName(path) + "…");
         try {
             if (workspace.exists(path)) {
@@ -182,6 +244,10 @@ public class CoderTools {
 
     @Tool(description = "编译后端项目，返回编译结果。改完代码一定要调用它验证；如果编译失败，根据报错继续修，直到编译通过为止。")
     public String compile() {
+        String blocked = guard("compile");
+        if (blocked != null) {
+            return blocked;
+        }
         notify("正在编译…");
         try {
             CoderWorkspace.ExecResult result = workspace.compile();
@@ -192,13 +258,21 @@ public class CoderTools {
             notify("编译失败，正在修复…");
             return "编译失败，报错如下：\n" + result.output;
         } catch (Exception e) {
+            //命令本身起不来（比如mvn不在PATH）不是模型能修的，
+            //不说清楚它会以为是自己的问题，接着搜"怎么编译"，一直搜下去
             logger.error("compile执行失败", e);
-            return "编译执行失败：" + e.getMessage();
+            return "编译命令无法执行：" + e.getMessage()
+                    + "。这是服务端环境问题（多半是 mvn 不在 PATH），不是代码问题，"
+                    + "你无法通过改代码或换工具解决。请停止调用工具，直接说明这一点然后结束。";
         }
     }
 
     @Tool(description = "运行项目的单元测试，返回测试结果。写完测试用例后调用它验证；测试不通过就根据报错修，直到通过为止。")
     public String runTests() {
+        String blocked = guard("runTests");
+        if (blocked != null) {
+            return blocked;
+        }
         notify("正在运行单元测试…");
         try {
             CoderWorkspace.ExecResult result = workspace.runTests();
@@ -210,7 +284,9 @@ public class CoderTools {
             return "测试未通过，输出如下：\n" + result.output;
         } catch (Exception e) {
             logger.error("runTests执行失败", e);
-            return "测试执行失败：" + e.getMessage();
+            return "测试命令无法执行：" + e.getMessage()
+                    + "。这是服务端环境问题，不是代码问题，你无法通过改代码解决。"
+                    + "请停止调用工具，直接说明这一点然后结束。";
         }
     }
 

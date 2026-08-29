@@ -14,7 +14,8 @@ public enum AiWorkflowStageEnum {
     CODING("编码实现"),
     TESTING("测试验证"),
     DONE("已完成"),
-    FAILED("已终止");
+    FAILED("已终止"),
+    CANCELLED("用户已停止");
 
     private final String desc;
 

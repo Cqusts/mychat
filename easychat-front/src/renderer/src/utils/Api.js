@@ -29,6 +29,8 @@ const api = {
     updatePassword: "/userInfo/updatePassword",
     logout: "/userInfo/logout",
     sendMessage: "/chat/sendMessage",//发送消息
+    stopAiTask: "/chat/stopAiTask",//停掉群里正在跑的AI需求流水线
+    queryAiTaskRunning: "/chat/queryAiTaskRunning",//群里有没有在跑的流水线
     uploadFile: "/chat/uploadFile",//上传文件地址
     loadAdminAccount: "/admin/loadUser",//后台获取用户列表
     updateUserStatus: "/admin/updateUserStatus",//后台更新用户状态
