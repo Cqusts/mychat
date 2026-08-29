@@ -92,6 +92,11 @@ public class Constants {
      */
     public static final String REDIS_KEY_AI_TASK = "easychat:ai:task:";
 
+    /**
+     * 评测记录列表。只在开了 ai.eval.enabled 时写
+     */
+    public static final String REDIS_KEY_AI_EVAL = "easychat:ai:eval:records";
+
     public static final String APP_UPDATE_FOLDER = "/app/";
 
     public static final String APP_NAME = "EasyChatSetup.";

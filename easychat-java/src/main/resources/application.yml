@@ -70,12 +70,27 @@ ai:
   # 真人在群里@入口助手（产品经理）就等于提需求，之后由状态机推进：
   #   需求分析 → 方案设计 → 方案评审 →（通过）完成 /（打回）退回方案设计
   # 之所以不让助手自己@下一个人：实测第2棒就跳链，架构师会跳过评审直接找测试
+  # ==================== 评测 ====================
+  # 跑批评测流水线的完成率、返工轮次、编译一次通过率等指标。
+  # 这几个接口能凭一次请求驱动模型改代码、跑maven，所以默认关掉，
+  # 只在本地自测时开，别在公网环境打开
+  eval:
+    enabled: false
+    # 单个任务等多久算超时，超了就记一笔继续跑下一条
+    task-timeout-minutes: 45
+
   workflow:
     enabled: true
     # 方案被打回后最多重做几次，超了就终止，避免评审和架构师无限拉锯
     max-review-retry: 2
     # 任务状态在Redis里的保留时长
     task-expire-hours: 24
+    # 流水线专用线程池，和聊天池(ai.chat.executor)分开：
+    # 一条流水线能占住线程几十分钟，混在一起会把普通用户的单聊消息堵在队列后面
+    executor:
+      core-size: 4
+      max-size: 8
+      queue-capacity: 16
     agents:
       requirement: "Uagentpm"
       design: "Uagentarch"

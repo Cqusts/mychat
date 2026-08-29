@@ -91,11 +91,49 @@ public class AiWorkflowTaskDto implements Serializable {
      */
     private Boolean testsPassed;
 
+    /**
+     * 首次编译是否直接通过（没让模型返工修）。
+     * 评测用：这个数直接反映编码Agent的实际可用性
+     */
+    private Boolean firstCompilePass;
+
+    /**
+     * 失败原因，只在非DONE时有值。评测时用来出失败分布，
+     * 知道"败在哪一环"比知道"完成率多少"更能指导下一步优化
+     */
+    private String failReason;
+
     private Long createTime;
+
+    private Long endTime;
 
     public AiWorkflowTaskDto() {
         this.retryCount = 0;
         this.reviewHistory = new ArrayList<>();
+    }
+
+    public Boolean getFirstCompilePass() {
+        return firstCompilePass;
+    }
+
+    public void setFirstCompilePass(Boolean firstCompilePass) {
+        this.firstCompilePass = firstCompilePass;
+    }
+
+    public String getFailReason() {
+        return failReason;
+    }
+
+    public void setFailReason(String failReason) {
+        this.failReason = failReason;
+    }
+
+    public Long getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(Long endTime) {
+        this.endTime = endTime;
     }
 
     public String getTaskId() {

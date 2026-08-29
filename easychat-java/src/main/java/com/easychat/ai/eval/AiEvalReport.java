@@ -1,0 +1,165 @@
+package com.easychat.ai.eval;
+
+import java.io.Serializable;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 评测报告。字段就是要写进简历的那几个数
+ */
+public class AiEvalReport implements Serializable {
+
+    private static final long serialVersionUID = 991823741293847L;
+
+    private int total;
+
+    private int completed;
+
+    /**
+     * 任务完成率，百分数保留一位小数。Agent系统的总分
+     */
+    private double completionRate;
+
+    /**
+     * 平均评审返工轮次
+     */
+    private double avgRetryCount;
+
+    private int enteredCoding;
+
+    /**
+     * 编译一次通过率。分母只算走到编码阶段的任务——
+     * 把连方案都没过的也算进来是在稀释这个数，看不出编码Agent的真实水平
+     */
+    private double firstCompilePassRate;
+
+    private int codePushed;
+
+    private int testsPassed;
+
+    private long medianCostMs;
+
+    /**
+     * 用P90不用最大值：最大值往往是某一次超时，代表不了体感
+     */
+    private long p90CostMs;
+
+    /**
+     * 失败原因分布。这张表比完成率更能指导下一步做什么
+     */
+    private Map<String, Integer> failReasons = new LinkedHashMap<>();
+
+    /**
+     * 按需求分组的通过情况，形如 "给消息表加字段" -> "2/2"。
+     * temperature不为0时同一条需求多次结果可能不同，
+     * 只看总完成率会掩盖掉这种不稳定
+     */
+    private Map<String, String> perRequirement = new LinkedHashMap<>();
+
+    private List<AiEvalRecord> records;
+
+    public int getTotal() {
+        return total;
+    }
+
+    public void setTotal(int total) {
+        this.total = total;
+    }
+
+    public int getCompleted() {
+        return completed;
+    }
+
+    public void setCompleted(int completed) {
+        this.completed = completed;
+    }
+
+    public double getCompletionRate() {
+        return completionRate;
+    }
+
+    public void setCompletionRate(double completionRate) {
+        this.completionRate = completionRate;
+    }
+
+    public double getAvgRetryCount() {
+        return avgRetryCount;
+    }
+
+    public void setAvgRetryCount(double avgRetryCount) {
+        this.avgRetryCount = avgRetryCount;
+    }
+
+    public int getEnteredCoding() {
+        return enteredCoding;
+    }
+
+    public void setEnteredCoding(int enteredCoding) {
+        this.enteredCoding = enteredCoding;
+    }
+
+    public double getFirstCompilePassRate() {
+        return firstCompilePassRate;
+    }
+
+    public void setFirstCompilePassRate(double firstCompilePassRate) {
+        this.firstCompilePassRate = firstCompilePassRate;
+    }
+
+    public int getCodePushed() {
+        return codePushed;
+    }
+
+    public void setCodePushed(int codePushed) {
+        this.codePushed = codePushed;
+    }
+
+    public int getTestsPassed() {
+        return testsPassed;
+    }
+
+    public void setTestsPassed(int testsPassed) {
+        this.testsPassed = testsPassed;
+    }
+
+    public long getMedianCostMs() {
+        return medianCostMs;
+    }
+
+    public void setMedianCostMs(long medianCostMs) {
+        this.medianCostMs = medianCostMs;
+    }
+
+    public long getP90CostMs() {
+        return p90CostMs;
+    }
+
+    public void setP90CostMs(long p90CostMs) {
+        this.p90CostMs = p90CostMs;
+    }
+
+    public Map<String, Integer> getFailReasons() {
+        return failReasons;
+    }
+
+    public void setFailReasons(Map<String, Integer> failReasons) {
+        this.failReasons = failReasons;
+    }
+
+    public Map<String, String> getPerRequirement() {
+        return perRequirement;
+    }
+
+    public void setPerRequirement(Map<String, String> perRequirement) {
+        this.perRequirement = perRequirement;
+    }
+
+    public List<AiEvalRecord> getRecords() {
+        return records;
+    }
+
+    public void setRecords(List<AiEvalRecord> records) {
+        this.records = records;
+    }
+}

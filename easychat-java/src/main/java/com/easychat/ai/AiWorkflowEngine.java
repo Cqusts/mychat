@@ -1,6 +1,7 @@
 package com.easychat.ai;
 
 import com.easychat.entity.constants.Constants;
+import com.easychat.ai.eval.AiEvalRecorder;
 import com.easychat.entity.dto.AiWorkflowTaskDto;
 import com.easychat.entity.dto.TokenUserInfoDto;
 import com.easychat.entity.enums.AiWorkflowStageEnum;
@@ -139,11 +140,16 @@ public class AiWorkflowEngine {
     @Resource
     private CoderWorkspace coderWorkspace;
 
-    @Resource(name = "aiTaskExecutor")
+    //流水线用自己的池，不和秒级的聊天回复挤在一起，
+    //否则一条跑几十分钟的编码任务会把普通用户的消息堵在队列后面
+    @Resource(name = "aiWorkflowExecutor")
     private ThreadPoolTaskExecutor aiTaskExecutor;
 
     @Resource
     private AiTaskControl aiTaskControl;
+
+    @Resource
+    private AiEvalRecorder aiEvalRecorder;
 
     /**
      * ChatMessageService要用本引擎、本引擎又要用它，构成循环依赖，用@Lazy注入代理打破。
@@ -178,19 +184,22 @@ public class AiWorkflowEngine {
      *
      * @param groupAgentIds 这个群里实际存在的助手，用来做缺席检查
      */
-    public void startTask(String groupId, String sessionId, TokenUserInfoDto requester,
-                          String requirement, List<String> groupAgentIds) {
+    /**
+     * @return 任务ID；没能启动（缺助手、需求为空、线程池满）时返回null
+     */
+    public String startTask(String groupId, String sessionId, TokenUserInfoDto requester,
+                            String requirement, List<String> groupAgentIds) {
         TokenUserInfoDto entryAgent = tokenOf(requirementAgentId);
         if (entryAgent == null) {
             logger.error("流水线入口助手未配置或不存在, agentId:{}", requirementAgentId);
-            return;
+            return null;
         }
 
         //光@了人没说需求，问清楚再开始，不然模型会自己编一个需求出来
         if (StringTools.isEmpty(requirement)) {
             postAgentMessage(entryAgent, groupId,
                     "你想做什么需求？@我的时候把需求描述一起发过来，我这边接到就开始走流程。");
-            return;
+            return null;
         }
 
         //缺席检查：少一个角色流程就走不完，与其跑到一半断掉，不如一开始就说清楚
@@ -200,7 +209,7 @@ public class AiWorkflowEngine {
                     + "。请群主到「群详情 → 助手」把他们拉进来，然后重新@我提一次。";
             logger.info("流水线助手缺席, groupId:{}, 缺少:{}", groupId, missing);
             postAgentMessage(entryAgent, groupId, tip);
-            return;
+            return null;
         }
 
         AiWorkflowTaskDto task = new AiWorkflowTaskDto();
@@ -219,11 +228,32 @@ public class AiWorkflowEngine {
             aiTaskExecutor.execute(() -> runTask(task.getTaskId()));
             logger.info("需求流水线已启动, taskId:{}, groupId:{}, 需求:{}",
                     task.getTaskId(), groupId, requirement);
+            return task.getTaskId();
         } catch (TaskRejectedException e) {
             aiTaskControl.finish(task.getTaskId());
-            logger.warn("AI线程池已满，流水线启动失败, groupId:{}", groupId);
+            logger.warn("流水线线程池已满，启动失败, groupId:{}", groupId);
             postAgentMessage(entryAgent, groupId, "现在活儿有点多，这个需求先没接住，过会儿再@我一次。");
+            return null;
         }
+    }
+
+    /**
+     * 任务是否还在跑。评测跑批靠它串行等待，不然多条并发会互相干扰计时
+     */
+    public boolean isTaskRunning(String taskId) {
+        return aiTaskControl.get(taskId) != null;
+    }
+
+    /**
+     * 终态归档：记结束时间和失败原因，然后落一条评测记录。
+     * 没开 ai.eval.enabled 时 recorder 内部直接返回，等于没有这一步
+     */
+    private void archive(AiWorkflowTaskDto task, String failReason) {
+        task.setEndTime(System.currentTimeMillis());
+        if (failReason != null) {
+            task.setFailReason(failReason);
+        }
+        aiEvalRecorder.record(task);
     }
 
     /**
@@ -346,6 +376,7 @@ public class AiWorkflowEngine {
                             + stageDesc + "】，没有提交也没有推送任何代码。"
                             + "想继续的话重新@我提一次。");
         }
+        archive(task, "用户停止(" + stageDesc + ")");
         logger.info("流水线被用户停止, taskId:{}, 停在:{}", task.getTaskId(), stageDesc);
     }
 
@@ -510,6 +541,7 @@ public class AiWorkflowEngine {
             postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
                     atRequester(task) + "方案评审通过了，但编码环节起不来：" + toolchainProblem
                             + "\n流程停在这里，没有动任何代码。");
+            archive(task, "编码环境不可用");
             return null;
         }
 
@@ -579,6 +611,8 @@ public class AiWorkflowEngine {
                             + "通常是方案还不够具体，或者它没定位到该改的文件。";
             postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
                     atRequester(task) + "编码环节没有产生任何代码改动，流程停在这里。" + why);
+            archive(task, tools.getBudget().isStopped()
+                    ? "编码被熔断(" + tools.getBudget().getStopReason() + ")" : "编码零改动");
             return null;
         }
 
@@ -604,6 +638,7 @@ public class AiWorkflowEngine {
                     atRequester(task) + "代码改完了但编译不通过，已经放弃推送，避免把编不过的代码推上去。"
                             + "改动还留在工作区分支 " + branch + " 上，没有提交。\n报错节选：\n"
                             + tailOf(compileError, MAX_ERROR_EXCERPT));
+            archive(task, "编译不通过");
             return null;
         }
 
@@ -617,6 +652,7 @@ public class AiWorkflowEngine {
             saveTask(task);
             postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
                     atRequester(task) + "代码写完也编译通过了，但推送分支失败：" + e.getMessage());
+            archive(task, "推送失败");
             return null;
         }
 
@@ -707,6 +743,11 @@ public class AiWorkflowEngine {
             } catch (Exception e) {
                 logger.error("编译执行失败, taskId:{}", task.getTaskId(), e);
                 return "编译命令没能执行起来：" + e.getMessage();
+            }
+            if (round == 0) {
+                //第0轮就过=模型自己写对了，这个数才是编码Agent的真实水平；
+                //后面几轮是引擎把报错怼回去逼它改出来的，不能算
+                task.setFirstCompilePass(result.success());
             }
             if (result.success()) {
                 return null;
@@ -873,6 +914,7 @@ public class AiWorkflowEngine {
                     + "轮没通过评审，流程先停在这里。建议你看看评审意见，把需求或约束再明确一下重新提。";
         }
         postAgentMessage(entryAgent, task.getGroupId(), summary);
+        archive(task, success ? null : "方案未通过评审");
     }
 
     private AiWorkflowTaskDto failTask(AiWorkflowTaskDto task, String reason) {
@@ -886,6 +928,7 @@ public class AiWorkflowEngine {
             postAgentMessage(entryAgent, task.getGroupId(),
                     at + "抱歉，处理这个需求时出错了，流程中断。可以过一会儿重新@我试试。");
         }
+        archive(task, reason);
         return null;
     }
 
