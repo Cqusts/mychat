@@ -1,3 +1,8 @@
 node_modules/
 easychat-front/assets/ffmpeg.exe
 easychat-front/assets/ffprobe.exe
+
+# 构建产物。之前 easychat-java/target 和 easychat-front/out 是被跟踪的，
+# 每次编译都会往提交里塞一百多个 .class，真正的改动全被埋掉了
+target/
+easychat-front/out/

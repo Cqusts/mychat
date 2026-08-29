@@ -13,7 +13,8 @@
     </appender>
 
     <springProperty scope="context" name="log.path" source="project.folder"/>
-    <springProperty scope="context" name="log.root.level" source="log.root.level"/>
+    <springProperty scope="context" name="log.root.level" source="log.root.level" defaultValue="info"/>
+    <springProperty scope="context" name="log.app.level" source="log.app.level" defaultValue="info"/>
 
     <property name="LOG_FOLDER" value="logs"/>
     <property name="LOG_FILE_NAME" value="easychat.log"/>
@@ -42,6 +43,21 @@
     <logger name="com.zaxxer.hikari" level="info"></logger>
     <logger name="io.lettuce.core" level="info"></logger>
     <logger name="org.springframework.data.redis" level="info"></logger>
+
+    <!-- 项目自己的日志单独给一个级别，MyBatis的SQL也走这个包名(com.easychat.mappers.*)，
+         所以把root压到info之后SQL照样看得见 -->
+    <logger name="com.easychat" level="${log.app.level}"></logger>
+
+    <!-- 下面几个是接大模型之后最吵的。Spring AI走的是WebClient，
+         DEBUG级别会把每一个SSE分片、每一次编解码、每一轮工具调用的入参出参都打出来，
+         一次流式回复就是几百行，控制台完全没法看。
+         真要排查大模型链路的问题时，临时把对应这行删掉即可 -->
+    <logger name="org.springframework.ai" level="info"></logger>
+    <logger name="org.springframework.web.reactive.function.client" level="info"></logger>
+    <logger name="org.springframework.core.codec" level="info"></logger>
+    <logger name="org.springframework.http.codec" level="info"></logger>
+    <logger name="reactor.netty" level="info"></logger>
+
     <root level="${log.root.level}">
         <appender-ref ref="stdot"/>
         <appender-ref ref="file"/>

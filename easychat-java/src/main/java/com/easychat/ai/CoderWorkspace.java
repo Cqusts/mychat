@@ -187,7 +187,11 @@ public class CoderWorkspace {
      * 改动概览，用来汇报给用户
      */
     public String diffStat() throws Exception {
-        ExecResult result = exec(rootFile(), Arrays.asList(gitCommand, "diff", "--stat", "HEAD"));
+        File root = rootFile();
+        //新建的文件在git眼里还是untracked，git diff根本看不见它们，
+        //先用 add -N 登记成"打算加入"，改动概览才不会漏掉新增的文件
+        exec(root, Arrays.asList(gitCommand, "add", "-N", "."));
+        ExecResult result = exec(root, Arrays.asList(gitCommand, "diff", "--stat", "HEAD"));
         return result.success() ? result.output.trim() : "";
     }
 
@@ -214,17 +218,35 @@ public class CoderWorkspace {
 
     // ==================== 文件操作，全部经过路径校验 ====================
 
+    /**
+     * 给模型看的读取，超长会截断，避免一个文件就把上下文吃满
+     */
     public String readFile(String relativePath) throws Exception {
-        Path file = resolveSafe(relativePath);
-        if (!Files.isRegularFile(file)) {
+        String content = readFileRaw(relativePath);
+        if (content == null) {
             return null;
         }
-        String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
         if (content.length() > MAX_READ_CHARS) {
             return content.substring(0, MAX_READ_CHARS)
                     + "\n……（文件过长已截断，共" + content.length() + "字符）";
         }
         return content;
+    }
+
+    /**
+     * 读全文，不截断。
+     *
+     * 凡是"读出来改一改再写回去"的地方都必须用这个：
+     * 之前 replaceInFile 用的是上面那个截断版，一旦文件超过MAX_READ_CHARS，
+     * 替换完写回去就把文件从两万字符处齐根砍断了，而且编译不一定立刻报错，
+     * 是个会悄悄毁文件的bug
+     */
+    public String readFileRaw(String relativePath) throws Exception {
+        Path file = resolveSafe(relativePath);
+        if (!Files.isRegularFile(file)) {
+            return null;
+        }
+        return new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
     }
 
     public void writeFile(String relativePath, String content) throws Exception {
@@ -318,6 +340,12 @@ public class CoderWorkspace {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.directory(workDir);
         builder.redirectErrorStream(true);
+        //输出是按UTF-8读的，但maven在中文Windows上默认按GBK写，
+        //不统一的话编译报错到了模型手里就是一堆乱码，它根本没法照着修
+        String mavenOpts = builder.environment().getOrDefault("MAVEN_OPTS", "");
+        builder.environment().put("MAVEN_OPTS",
+                (mavenOpts + " -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8"
+                        + " -Dsun.stderr.encoding=UTF-8").trim());
         logger.info("执行命令: {} (cwd={})", String.join(" ", command), workDir);
         Process process = builder.start();
         StringBuilder output = new StringBuilder();

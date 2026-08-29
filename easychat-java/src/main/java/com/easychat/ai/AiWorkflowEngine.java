@@ -60,6 +60,25 @@ public class AiWorkflowEngine {
     private static final String NO_MENTION_RULE =
             "\n注意：流程的下一棒由系统自动调度，你不需要、也不要@任何人。";
 
+    /**
+     * 带工具的阶段轮次多、上下文长，模型很容易滑到英文去
+     * （程序员助手那一轮整篇都是英文，用户根本看不懂它在干什么）。
+     * 这条约束要写死在每个阶段的system prompt里，光靠人设是中文压不住
+     */
+    private static final String CHINESE_RULE =
+            "\n全程用中文表达：中间的思考、调用工具前后的说明、最后的总结，都必须是中文。"
+                    + "只有代码本身、文件路径、报错原文保持原样。";
+
+    /**
+     * 每个阶段的system prompt末尾都要带上的通用约束
+     */
+    private static final String STAGE_RULES = NO_MENTION_RULE + CHINESE_RULE;
+
+    /**
+     * 发到群里的报错节选长度。chat_message虽然改成了text，但刷屏一样没法看
+     */
+    private static final int MAX_ERROR_EXCERPT = 800;
+
     @Value("${ai.workflow.enabled:true}")
     private Boolean workflowEnabled;
 
@@ -254,7 +273,7 @@ public class AiWorkflowEngine {
                 + "\n你现在在一条需求流水线上工作，负责【需求分析】这一环。"
                 + "请只输出需求分析本身：解决谁的什么问题、核心使用场景、优先级、边界（明确什么不做）。"
                 + "控制在200字以内，用自然段落，不要罗列小标题。"
-                + NO_MENTION_RULE;
+                + STAGE_RULES;
         String userPrompt = "【原始需求】\n" + task.getRequirement() + "\n\n请输出你的需求分析。";
 
         String output = callAgent(agent, task, systemPrompt, userPrompt);
@@ -276,7 +295,7 @@ public class AiWorkflowEngine {
                 + "项目技术栈是 Spring Boot 3 + Netty WebSocket + MySQL + MyBatis + Redis/Redisson"
                 + " + Vue3/Electron，方案要落到这套栈上，不要泛泛而谈。"
                 + "控制在300字以内。"
-                + NO_MENTION_RULE;
+                + STAGE_RULES;
 
         StringBuilder userPrompt = new StringBuilder();
         userPrompt.append("【原始需求】\n").append(task.getRequirement()).append("\n\n");
@@ -324,7 +343,7 @@ public class AiWorkflowEngine {
             systemPrompt.append("评审的目的是把关，不是无限迭代。");
         }
         systemPrompt.append("不要和稀泥，方案有真正的硬伤就打回。控制在250字以内。");
-        systemPrompt.append(NO_MENTION_RULE);
+        systemPrompt.append(STAGE_RULES);
 
         StringBuilder userPrompt = new StringBuilder();
         userPrompt.append("【原始需求】\n").append(task.getRequirement()).append("\n\n");
@@ -403,16 +422,22 @@ public class AiWorkflowEngine {
         TokenUserInfoDto agentToken = tokenOf(codingAgentId);
         CoderTools tools = new CoderTools(coderWorkspace, null);
 
+        //这一步要读文件、改文件、跑maven，动辄好几分钟，
+        //群里不说一声的话看起来就像流程卡死了
+        postAgentMessage(agentToken, task.getGroupId(),
+                "方案通过了，我开始改代码。工作分支：" + branch + "，写完会编译验证再推。");
+
         String systemPrompt = personaOf(agent)
                 + "\n你现在在一条需求流水线上工作，负责【编码实现】这一环，要真的改代码。"
                 + "工作方式：先用 searchCode 定位相关文件，用 readFile 看清楚现有实现，"
                 + "再用 replaceInFile 修改或 createFile 新建，最后必须调用 compile 验证。"
                 + "编译不通过就根据报错继续修，直到通过为止。"
                 + "注意几点：改动要小而准，只做方案要求的事，不要顺手重构无关代码；"
-                + "replaceInFile 的 oldText 必须和文件里一字不差且唯一；"
+                + "replaceInFile 的 oldText 只要能唯一定位就行，换行符和缩进工具会自动兼容，"
+                + "如果提示没找到，按它回显的原文重试一次即可，不要在同一处反复试；"
                 + "不要编造项目里不存在的类或方法，拿不准就先 readFile 确认。"
                 + "全部改完并编译通过后，用一段话说明你改了哪些文件、每个文件做了什么。"
-                + NO_MENTION_RULE;
+                + STAGE_RULES;
 
         String userPrompt = "【原始需求】\n" + task.getRequirement() + "\n\n"
                 + "【需求分析】\n" + task.getRequirementDoc() + "\n\n"
@@ -425,34 +450,52 @@ public class AiWorkflowEngine {
             return failTask(task, "编码阶段调用失败");
         }
 
-        //模型可能一顿分析但一个文件都没动，这种情况必须识别出来，不能当成功
+        //模型可能一顿分析但一个文件都没动，这种情况必须识别出来，不能当成功。
+        //判断依据只看git的真实状态，不看模型自己怎么说
+        boolean hasChanges;
         try {
-            if (!coderWorkspace.hasChanges()) {
-                task.setStage(AiWorkflowStageEnum.FAILED.name());
-                task.setCodePushed(false);
-                saveTask(task);
-                postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
-                        atRequester(task) + "编码环节没有产生任何代码改动，流程停在这里。"
-                                + "通常是方案还不够具体，或者助手没找到该改的文件。");
-                return null;
-            }
+            hasChanges = coderWorkspace.hasChanges();
         } catch (Exception e) {
             logger.error("检查工作区改动失败, taskId:{}", task.getTaskId(), e);
+            hasChanges = true;
+        }
+        if (!hasChanges) {
+            task.setStage(AiWorkflowStageEnum.FAILED.name());
+            task.setCodePushed(false);
+            saveTask(task);
+            postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
+                    atRequester(task) + "编码环节没有产生任何代码改动，流程停在这里。"
+                            + "助手一共调用了" + tools.getChangedFileCount() + "次写文件工具，"
+                            + "通常是方案还不够具体，或者它没定位到该改的文件。");
+            return null;
+        }
+
+        //把"到底动了哪些文件"单独发一条。模型的自述可能含糊甚至虚构，
+        //这条是从git统计出来的，用户可以直接拿它对账
+        try {
+            task.setCodeDiffStat(coderWorkspace.diffStat());
+            if (!StringTools.isEmpty(task.getCodeDiffStat())) {
+                postAgentMessage(agentToken, task.getGroupId(),
+                        "本轮实际改动（git 统计）：\n" + task.getCodeDiffStat());
+            }
+        } catch (Exception e) {
+            logger.error("取改动概览失败, taskId:{}", task.getTaskId(), e);
         }
 
         //引擎自己再编译一次把关：模型有可能说"编译通过"但其实没跑过compile
-        if (!verifyCompile(agent, task, tools)) {
+        String compileError = verifyCompile(agent, task, tools);
+        if (compileError != null) {
             task.setStage(AiWorkflowStageEnum.FAILED.name());
             task.setCodePushed(false);
             saveTask(task);
             postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
                     atRequester(task) + "代码改完了但编译不通过，已经放弃推送，避免把编不过的代码推上去。"
-                            + "详细报错见服务端日志。");
+                            + "改动还留在工作区分支 " + branch + " 上，没有提交。\n报错节选：\n"
+                            + tailOf(compileError, MAX_ERROR_EXCERPT));
             return null;
         }
 
         try {
-            task.setCodeDiffStat(coderWorkspace.diffStat());
             coderWorkspace.commitAndPush(branch,
                     "feat: " + task.getRequirement() + "\n\n由EasyChat需求流水线自动生成，taskId:" + task.getTaskId());
             task.setCodePushed(true);
@@ -497,7 +540,7 @@ public class AiWorkflowEngine {
                 + "优先测不依赖外部环境的纯逻辑，需要数据库、Redis或Spring容器的地方用Mockito打桩，"
                 + "不要写必须连上真实MySQL/Redis才能跑的测试——测试环境里没有这些。"
                 + "最后用一段话说明：你测了哪些场景、结果如何、还有什么风险没覆盖到。"
-                + NO_MENTION_RULE;
+                + STAGE_RULES;
 
         String userPrompt = "【原始需求】\n" + task.getRequirement() + "\n\n"
                 + "【技术方案】\n" + task.getTechPlan() + "\n\n"
@@ -536,32 +579,46 @@ public class AiWorkflowEngine {
     }
 
     /**
-     * 引擎侧的编译把关。不通过就把报错回传给模型再修几轮
+     * 引擎侧的编译把关。不通过就把报错回传给模型再修几轮。
+     *
+     * @return 编译通过返回null，否则返回最后一次的报错内容，供群里如实告知
      */
-    private boolean verifyCompile(AiAgentDefinition agent, AiWorkflowTaskDto task, CoderTools tools) {
+    private String verifyCompile(AiAgentDefinition agent, AiWorkflowTaskDto task, CoderTools tools) {
         for (int round = 0; round <= maxFixRounds; round++) {
             CoderWorkspace.ExecResult result;
             try {
                 result = coderWorkspace.compile();
             } catch (Exception e) {
                 logger.error("编译执行失败, taskId:{}", task.getTaskId(), e);
-                return false;
+                return "编译命令没能执行起来：" + e.getMessage();
             }
             if (result.success()) {
-                return true;
+                return null;
             }
             if (round == maxFixRounds) {
                 logger.error("编译始终不通过，放弃推送, taskId:{}, 报错:\n{}", task.getTaskId(), result.output);
-                return false;
+                return result.output;
             }
             logger.info("编译不通过，让程序员助手再修一轮, taskId:{}, 第{}轮", task.getTaskId(), round + 1);
             String fixPrompt = "你刚才的改动编译不通过，报错如下：\n" + result.output
                     + "\n\n请定位问题并修好，改完再调用 compile 确认。";
             callAgent(agent, task, personaOf(agent)
                     + "\n你在修复自己刚才改出来的编译错误。只改导致报错的地方，不要顺手改别的。"
-                    + NO_MENTION_RULE, fixPrompt, tools, coderTimeoutSeconds);
+                    + STAGE_RULES, fixPrompt, tools, coderTimeoutSeconds);
         }
-        return false;
+        return "编译未通过";
+    }
+
+    /**
+     * maven的报错往往几百行，真正有用的在末尾，掐尾巴发到群里就够定位了
+     */
+    private String tailOf(String text, int maxChars) {
+        if (text == null) {
+            return "";
+        }
+        String trimmed = text.trim();
+        return trimmed.length() <= maxChars ? trimmed
+                : "……\n" + trimmed.substring(trimmed.length() - maxChars);
     }
 
     private String atRequester(AiWorkflowTaskDto task) {
@@ -611,6 +668,16 @@ public class AiWorkflowEngine {
                 aiStreamPusher.push(agentToken, task.getGroupId(), task.getSessionId(),
                         MessageTypeEnum.AI_STREAM, streamId,
                         StringTools.resetMessageContent(delta), index.getAndIncrement());
+            }
+
+            @Override
+            public void onToolCall(String toolHint) {
+                //接口里onToolCall是default空实现，这里以前没覆写，
+                //结果CoderTools里"正在修改XXX.java…""正在编译…"全都推到了空气里，
+                //用户在群里只能干等，完全不知道助手到底动没动代码
+                aiStreamPusher.push(agentToken, task.getGroupId(), task.getSessionId(),
+                        MessageTypeEnum.AI_TOOL_CALL, streamId,
+                        toolHint, index.getAndIncrement());
             }
 
             @Override

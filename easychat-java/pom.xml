@@ -199,6 +199,16 @@
                     <mainClass>com.easychat.EasyChatApplication</mainClass>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- 测试类名和断言消息都是中文。不指定编码的话，
+                         fork出来的测试JVM在中文Windows上按GBK输出，
+                         失败信息到了控制台和AI测试助手手里全是问号，根本看不出哪个用例挂了 -->
+                    <argLine>-Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8</argLine>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
