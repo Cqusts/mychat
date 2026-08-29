@@ -51,6 +51,33 @@ public class AiEvalReport implements Serializable {
     private Map<String, Integer> failReasons = new LinkedHashMap<>();
 
     /**
+     * 失败按阶段归并：需求分析 / 方案设计 / 方案评审 / 编码实现 / 用户停止。
+     * 简历上写"失败集中在X阶段"要的就是这个口径，
+     * 光有细分原因还得自己心算
+     */
+    private Map<String, Integer> stageFailures = new LinkedHashMap<>();
+
+    /**
+     * 编码阶段失败数占全部失败数的比例
+     */
+    private double codingFailureRate;
+
+    /**
+     * 失败最多的那个具体原因，决定下一步优化什么
+     */
+    private String topFailReason;
+
+    /**
+     * 有几条不同的需求（同一条跑多次算一条）
+     */
+    private int requirementCount;
+
+    /**
+     * 每条需求跑了几次
+     */
+    private int repeat;
+
+    /**
      * 按需求分组的通过情况，形如 "给消息表加字段" -> "2/2"。
      * temperature不为0时同一条需求多次结果可能不同，
      * 只看总完成率会掩盖掉这种不稳定
@@ -145,6 +172,46 @@ public class AiEvalReport implements Serializable {
 
     public void setFailReasons(Map<String, Integer> failReasons) {
         this.failReasons = failReasons;
+    }
+
+    public Map<String, Integer> getStageFailures() {
+        return stageFailures;
+    }
+
+    public void setStageFailures(Map<String, Integer> stageFailures) {
+        this.stageFailures = stageFailures;
+    }
+
+    public double getCodingFailureRate() {
+        return codingFailureRate;
+    }
+
+    public void setCodingFailureRate(double codingFailureRate) {
+        this.codingFailureRate = codingFailureRate;
+    }
+
+    public String getTopFailReason() {
+        return topFailReason;
+    }
+
+    public void setTopFailReason(String topFailReason) {
+        this.topFailReason = topFailReason;
+    }
+
+    public int getRequirementCount() {
+        return requirementCount;
+    }
+
+    public void setRequirementCount(int requirementCount) {
+        this.requirementCount = requirementCount;
+    }
+
+    public int getRepeat() {
+        return repeat;
+    }
+
+    public void setRepeat(int repeat) {
+        this.repeat = repeat;
     }
 
     public Map<String, String> getPerRequirement() {

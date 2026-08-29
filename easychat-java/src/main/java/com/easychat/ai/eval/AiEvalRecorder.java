@@ -36,6 +36,8 @@ public class AiEvalRecorder {
      */
     private static final int MAX_RECORDS = 500;
 
+    private static final String STAGE_CODING = "编码实现";
+
     @Value("${ai.eval.enabled:false}")
     private Boolean evalEnabled;
 
@@ -161,6 +163,32 @@ public class AiEvalRecorder {
         report.setP90CostMs(quantile(costs, 0.9));
         report.setFailReasons(failReasons);
 
+        //按阶段归并。简历上写"失败集中在X阶段"要的是这个口径，
+        //光给细分原因还得自己心算，容易算错
+        Map<String, Integer> stageFailures = new LinkedHashMap<>();
+        int codingFailures = 0;
+        int totalFailures = 0;
+        String topReason = null;
+        int topCount = 0;
+        for (Map.Entry<String, Integer> entry : failReasons.entrySet()) {
+            String stage = stageOfFailure(entry.getKey());
+            stageFailures.merge(stage, entry.getValue(), Integer::sum);
+            totalFailures += entry.getValue();
+            if (STAGE_CODING.equals(stage)) {
+                codingFailures += entry.getValue();
+            }
+            if (entry.getValue() > topCount) {
+                topCount = entry.getValue();
+                topReason = entry.getKey();
+            }
+        }
+        report.setStageFailures(stageFailures);
+        report.setCodingFailureRate(percent(codingFailures, totalFailures));
+        report.setTopFailReason(topReason);
+
+        report.setRequirementCount(perRequirement.size());
+        report.setRepeat(perRequirement.isEmpty() ? 0 : records.size() / perRequirement.size());
+
         Map<String, String> perView = new LinkedHashMap<>();
         for (Map.Entry<String, int[]> entry : perRequirement.entrySet()) {
             perView.put(entry.getKey(), entry.getValue()[0] + "/" + entry.getValue()[1]);
@@ -186,6 +214,41 @@ public class AiEvalRecorder {
 
     private double round1(double value) {
         return Math.round(value * 10) / 10.0;
+    }
+
+    /**
+     * 把细分失败原因归到阶段上。
+     *
+     * 用前缀/关键词匹配而不是枚举：失败原因里带了动态内容
+     * （"用户停止(编码实现)"、"编码被熔断(超出工具调用次数上限)"），
+     * 精确相等匹配不上
+     */
+    private String stageOfFailure(String reason) {
+        if (reason == null) {
+            return "未知";
+        }
+        if (reason.startsWith("用户停止")) {
+            return "用户停止";
+        }
+        if (reason.startsWith("需求分析") || reason.contains("停在需求分析")) {
+            return "需求分析";
+        }
+        if (reason.startsWith("方案设计") || reason.contains("停在方案设计")) {
+            return "方案设计";
+        }
+        if (reason.startsWith("方案评审") || reason.equals("方案未通过评审")
+                || reason.contains("停在方案评审")) {
+            return "方案评审";
+        }
+        if (reason.startsWith("编码") || reason.startsWith("编译")
+                || reason.startsWith("推送") || reason.startsWith("准备代码工作区")
+                || reason.contains("停在编码实现")) {
+            return STAGE_CODING;
+        }
+        if (reason.startsWith("测试") || reason.contains("停在测试验证")) {
+            return "测试验证";
+        }
+        return "其他";
     }
 
     private String descOf(String stage) {

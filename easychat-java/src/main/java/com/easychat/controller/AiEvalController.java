@@ -129,9 +129,10 @@ public class AiEvalController extends ABaseController {
      */
     @RequestMapping("/reportText")
     @GlobalInterceptor
-    public ResponseVO reportText(HttpServletRequest request) {
+    public ResponseVO reportText(HttpServletRequest request, Double totalCostYuan) {
         checkEnabled();
-        return getSuccessResponseVO(AiEvalTextReport.render(aiEvalRecorder.report()));
+        return getSuccessResponseVO(
+                AiEvalTextReport.render(aiEvalRecorder.report(), totalCostYuan));
     }
 
     /**
