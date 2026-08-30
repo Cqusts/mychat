@@ -1,0 +1,178 @@
+# MyChat 的 AI 配置
+#
+# 为什么这些配置单独放 yml 而不是和其它配置一起放 application.properties：
+# Spring Boot 的 OriginTrackedPropertiesLoader 是写死用 ISO-8859-1 读 .properties 的
+# （遵循 java.util.Properties 规范），所以 .properties 里直接写中文一定会变成乱码，
+# 而且没有任何配置项能改这个行为。yml 走 SnakeYAML，默认按 UTF-8 读，中文正常。
+# 编辑本文件时请确保编辑器保存为 UTF-8。
+
+spring:
+  ai:
+    openai:
+      # API密钥（必填）。优先读环境变量 MYCHAT_AI_API_KEY，读不到才用这里的字面值。
+      # 强烈建议用环境变量：本文件是提交进git的，真key写在这里会跟着推到远端。
+      #   Windows:  setx MYCHAT_AI_API_KEY "sk-xxxx"   （设完要重开终端）
+      #   Linux/Mac: export MYCHAT_AI_API_KEY="sk-xxxx"
+      api-key: "${MYCHAT_AI_API_KEY:YOUR_API_KEY_HERE}"
+      # API地址（必填）- 根据你选择的大模型厂商填写
+      # OpenAI: https://api.openai.com
+      # 阿里通义千问: https://dashscope.aliyuncs.com/compatible-mode
+      # DeepSeek: https://api.deepseek.com
+      # 智谱GLM: https://open.bigmodel.cn/api/paas
+      base-url: "https://api.deepseek.com"
+      chat:
+        options:
+          # OpenAI: gpt-3.5-turbo / gpt-4o | 通义千问: qwen-turbo | DeepSeek: deepseek-chat | 智谱: glm-4-flash
+          model: "deepseek-chat"
+          # 生成随机性 0-1，值越大回复越随机
+          temperature: 0.7
+
+ai:
+  chat:
+    # 兜底系统提示词：助手没有在 ai.agents 里配置自己的 prompt 时用这个
+    system-prompt: "你是MyChat的智能助手小E，性格友好活泼，用简洁的中文回答问题。你可以调用工具查询当前用户的好友列表、群聊列表和聊天记录：需要这些信息时直接调用工具，不要凭空编造，也不要向用户索要联系人ID（用listFriends或listGroups自己查）。遇到“上周”“昨天”这类相对时间，先调getCurrentTime确认今天是哪天。如果用户打招呼，请热情回应。"
+    # 保留的最大对话历史轮数（一问一答为一轮）
+    max-history: 20
+    history:
+      # 对话历史在Redis中的过期天数，每次追加都会续期
+      expire-days: 7
+    stream:
+      # 片段聚合：缓冲区攒够多少个字符就推送一次
+      flush-chars: 20
+      # 片段聚合：距上次推送超过多少毫秒就推送一次
+      # 两个阈值共同作用，避免每个token都触发一次Redis广播 + WebSocket写
+      flush-interval-ms: 80
+      # 单次流式回复的整体超时（秒），防止模型不返回时永久占住线程池线程
+      timeout-seconds: 120
+    executor:
+      # 调用大模型是IO密集型操作，放独立线程池执行，不占用Tomcat的HTTP工作线程
+      core-size: 16
+      max-size: 64
+      # 队列不宜过深，排太久还不如快速失败让用户重试
+      queue-capacity: 64
+      keep-alive-seconds: 60
+    tools:
+      # 是否开放业务工具（查好友/查群/搜聊天记录/查时间）给模型调用
+      # 换到不支持Function Calling的模型上可以关掉，退回纯对话
+      enabled: true
+    group:
+      # 助手之间互相接话的最大轮数。
+      # 完整流程链是：你(0)→产品(1)→架构(2)→评审(3)→开发(4)→测试(5)→汇报(6)，
+      # 所以至少要8才跑得完。助手转交时只认第一个被@的人（代码里限制的），
+      # 链条是线性的，最坏情况就是8次模型调用
+      max-depth: 8
+      # 拼给助手看的群聊上下文条数。
+      # 流程越长、助手发言越长，越靠后的角色越容易看不到最初的需求——
+      # 这正是这次实验要观察的点之一
+      context-size: 25
+
+  # -------------------- 需求流水线编排 --------------------
+  # 真人在群里@入口助手（产品经理）就等于提需求，之后由状态机推进：
+  #   需求分析 → 方案设计 → 方案评审 →（通过）完成 /（打回）退回方案设计
+  # 之所以不让助手自己@下一个人：实测第2棒就跳链，架构师会跳过评审直接找测试
+  # ==================== 评测 ====================
+  # 跑批评测流水线的完成率、返工轮次、编译一次通过率等指标。
+  # 这几个接口能凭一次请求驱动模型改代码、跑maven，所以默认关掉，
+  # 只在本地自测时开，别在公网环境打开
+  eval:
+    enabled: false
+    # 单个任务等多久算超时，超了就记一笔继续跑下一条
+    task-timeout-minutes: 45
+
+  workflow:
+    enabled: true
+    # 方案被打回后最多重做几次，超了就终止，避免评审和架构师无限拉锯
+    max-review-retry: 2
+    # 任务状态在Redis里的保留时长
+    task-expire-hours: 24
+    # 流水线专用线程池，和聊天池(ai.chat.executor)分开：
+    # 一条流水线能占住线程几十分钟，混在一起会把普通用户的单聊消息堵在队列后面
+    executor:
+      core-size: 4
+      max-size: 8
+      queue-capacity: 16
+    agents:
+      requirement: "Uagentpm"
+      design: "Uagentarch"
+      review: "Uagentrv"
+      coding: "Uagentdev"
+      testing: "Uagentqa"
+
+  # -------------------- 程序员助手：真改代码 --------------------
+  # 这是整条流水线里唯一会写文件、执行命令、推git的环节，默认关闭，确认理解风险后再打开。
+  # 安全边界（都在 CoderWorkspace 里）：
+  #   - 独立工作区：另外克隆一份，不碰你正在用的工作树
+  #   - 路径校验：所有文件操作解析后必须仍在工作区内，挡掉 ../ 和绝对路径
+  #   - 命令白名单：只跑写死的 git/mvn 子命令，参数以数组传给 ProcessBuilder，不拼 shell
+  #   - 分支白名单：只能推 ai/ 前缀的分支，碰不到 main 和 Aibot
+  #   - 推送时机由引擎决定：模型只有改文件和编译的工具，没有提交推送的工具
+  coder:
+    enabled: false
+    # AI 专用的工作区目录，会在这里放一份独立克隆。不要指向你自己的仓库目录
+    workspace: "${MYCHAT_AI_WORKSPACE:D:/mychat-ai-workspace}"
+    # 从这个本地仓库读 origin 地址（也可以直接配 git-url 覆盖）
+    source-repo: "${MYCHAT_SOURCE_REPO:}"
+    git-url: ""
+    # 从哪个分支拉出来改
+    base-branch: "${MYCHAT_BASE_BRANCH:main}"
+    # mvn / git 不在 PATH 里时填绝对路径
+    maven-command: "mvn"
+    git-command: "git"
+    # 单条命令的超时，mvn compile 首次要下依赖会比较久
+    # 单轮最多允许模型调多少次工具。踩过的坑：机器上没装mvn，
+    # compile返回"命令无法执行"，模型看不懂这不是它能修的，
+    # 反复 searchCode("mvn") 刷了一千七百多次，只能重启服务端才停下来
+    max-tool-calls: 60
+    # 单轮的墙钟时限（分钟）。流的timeout管的是"两个分片之间的间隔"，
+    # 只要工具一直有产出就永远不触发，挡不住原地打转，所以这条线要单独划
+    stage-deadline-minutes: 20
+    command-timeout-seconds: 600
+    # 编码这一轮模型的整体超时：要反复搜索、读文件、编译，比聊天久得多
+    agent-timeout-seconds: 900
+    # 引擎最终编译不过时，再给模型几轮带着报错去修的机会
+    max-fix-rounds: 1
+
+  # AI助手列表
+  # 每个助手都是一个真实存在的用户（启动时自动写入 user_info 并生成默认头像），
+  # 可以加为好友私聊、被拉进群、被@
+  # id 必须以 U 开头且不超过12个字符（user_info.user_id 字段长度限制）
+  # signature 是昵称下方的一句话标签；description 是给用户看的能力清单，多条用 | 分隔；
+  # prompt 是给模型看的人设，三者用途不同
+  agents:
+    # 内置助手。id 必须等于 Constants.ROBOT_UID（U+robot），注册时会自动加为好友
+    - id: "Urobot"
+      name: "智能助手小E"
+      signature: "有什么想问的都可以找我"
+      description: "回答日常问题，陪你聊天|帮你查好友列表和群聊列表|按关键词搜索你和某人的聊天记录|记得住上下文，可以连着多轮问"
+      prompt: "你是MyChat的智能助手小E，性格友好活泼，用简洁的中文回答问题。如果用户打招呼，请热情回应。"
+
+    # ↓ 以下五个角色组成一条需求流水线，每个角色都知道自己该把活交给谁
+    - id: "Uagentpm"
+      name: "产品经理小P"
+      signature: "从用户价值出发想问题"
+      description: "流水线第1棒：需求分析|判断一个需求值不值得做|梳理优先级、场景和边界|完成后交给架构师小A"
+      prompt: "你是资深产品经理，习惯从用户价值、需求优先级和使用场景的角度思考问题。你会追问“这个功能解决了谁的什么问题”，对没想清楚用户价值的方案保持怀疑。说话直接、口语化，不堆术语。"
+
+    - id: "Uagentarch"
+      name: "架构师小A"
+      signature: "先问可行性和复杂度"
+      description: "流水线第2棒：技术方案|评估可行性和工作量|指出一致性、并发、扩展性的坑|完成后交给评审员小R"
+      prompt: "你是后端架构师，习惯从技术可行性、系统复杂度和长期维护成本的角度思考问题。你会关注数据一致性、并发和扩展性，对会引入过度复杂度的方案保持警惕。说话直接、具体，不说空话。"
+
+    - id: "Uagentrv"
+      name: "评审员小R"
+      signature: "方案有硬伤就打回"
+      description: "流水线第3棒：方案评审|检查可行性和过度设计|找出漏掉的场景|通过则交给程序员，不通过打回架构师"
+      prompt: "你是技术评审，负责给方案把关。你会逐条检查可行性、是否过度设计、有没有漏掉的场景、会不会和现有代码冲突。你不和稀泥，方案有硬伤就直说，但也不会为了显得严格而挑无关紧要的毛病。"
+
+    - id: "Uagentdev"
+      name: "程序员小C"
+      signature: "方案落到具体文件和方法"
+      description: "流水线第4棒：编码|说明改哪些文件、每个文件怎么改|粒度到方法级|完成后交给测试工程师小T"
+      prompt: "你是后端开发，习惯把方案落到具体的文件和方法上。你不会假装已经改完代码，也不会编造项目里现有代码的内容——不确定的地方你会直说。"
+
+    - id: "Uagentqa"
+      name: "测试工程师小T"
+      signature: "专门想边界情况"
+      description: "流水线第5棒：验证与汇报|列出必须覆盖的测试点|指出风险和遗漏|最后向需求提出人汇报结论"
+      prompt: "你是测试工程师，习惯从边界情况、异常路径和质量风险的角度思考问题。你会主动指出别人没考虑到的失败场景，比如并发、超时、脏数据和用户误操作。"

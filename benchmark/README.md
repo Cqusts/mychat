@@ -1,4 +1,4 @@
-# EasyChat 性能基准测试
+# MyChat 性能基准测试
 
 针对简历中两个核心指标的实测工具：
 - **端到端消息延迟 < 100ms** (RTopic → WebSocket推送)
@@ -15,7 +15,7 @@ mvn clean package -q
 
 ### 2. 前提条件
 
-- EasyChat 服务端已启动 (默认 HTTP :5050, WS :5051)
+- MyChat 服务端已启动 (默认 HTTP :5050, WS :5051)
 - Redis 已启动 (默认 :6379)
 - 系统 `ulimit -n` 已调高 (建议 >= 65535)
 
@@ -31,7 +31,7 @@ ulimit -n 65535
 ### 3. 生成测试 Token
 
 ```bash
-java -jar target/easychat-benchmark-1.0.0.jar gen-tokens \
+java -jar target/mychat-benchmark-1.0.0.jar gen-tokens \
   --redis-url redis://localhost:6379 \
   --count 5000 \
   --output tokens.txt
@@ -45,7 +45,7 @@ java -jar target/easychat-benchmark-1.0.0.jar gen-tokens \
 ### 4. 测试并发连接 (5000+)
 
 ```bash
-java -jar target/easychat-benchmark-1.0.0.jar concurrent \
+java -jar target/mychat-benchmark-1.0.0.jar concurrent \
   --ws-url ws://localhost:5051/ws \
   --tokens-file tokens.txt \
   --connections 5000 \
@@ -76,7 +76,7 @@ java -jar target/easychat-benchmark-1.0.0.jar concurrent \
 ### 5. 测试端到端消息延迟
 
 ```bash
-java -jar target/easychat-benchmark-1.0.0.jar latency \
+java -jar target/mychat-benchmark-1.0.0.jar latency \
   --ws-url ws://localhost:5051/ws \
   --redis-url redis://localhost:6379 \
   --tokens-file tokens.txt \
@@ -149,5 +149,5 @@ sudo sysctl -w net.ipv4.tcp_max_syn_backlog=65535
 java -Xms1g -Xmx2g \
   -XX:+UseG1GC \
   -Dio.netty.leakDetection.level=disabled \
-  -jar easychat.jar
+  -jar mychat.jar
 ```

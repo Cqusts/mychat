@@ -1,4 +1,4 @@
-# EasyChat
+# MyChat
 
 一个仿微信的全栈即时通讯应用，在完整的 IM 系统之上构建了 AI Agent 能力：AI 助手可以加为好友私聊、可以被拉进群、能调用业务工具查数据，也能在群里被 @ 触发并互相接力讨论。
 
@@ -148,8 +148,8 @@ public ChatAgentTools(String userId, AiStreamCallback callback, ...)
 
 ```
 mychat/
-├── easychat-java/                    # 后端 Spring Boot 服务
-│   ├── src/main/java/com/easychat/
+├── mychat-java/                    # 后端 Spring Boot 服务
+│   ├── src/main/java/com/mychat/
 │   │   ├── ai/                       # AI Agent 层
 │   │   │   ├── AiAgentDefinition     #   助手定义（id/昵称/人设/能力描述）
 │   │   │   ├── AiAgentRegistry       #   注册表 + @提及解析
@@ -176,15 +176,15 @@ mychat/
 │   └── src/main/resources/
 │   │       ├── application.properties  # 数据库/Redis/端口等基础设施配置
 │   │       └── application.yml         # AI 配置（中文必须放这里，见下文）
-│   └── src/test/java/com/easychat/ai/   # 单元测试
-├── easychat-front/                   # 前端 Electron + Vue 3 桌面应用
+│   └── src/test/java/com/mychat/ai/   # 单元测试
+├── mychat-front/                   # 前端 Electron + Vue 3 桌面应用
 │   ├── assets/                       # ⚠️ ffmpeg.exe / ffprobe.exe 需自行下载
 │   └── src/
 │       ├── main/                     # Electron 主进程（含 WebSocket 客户端）
 │       ├── renderer/                 # Vue 3 渲染进程
 │       └── preload/                  # 预加载脚本
 ├── benchmark/                        # 性能基准测试工具
-├── easychat.sql                      # 数据库初始化脚本
+├── mychat.sql                      # 数据库初始化脚本
 └── README.md
 ```
 
@@ -211,23 +211,23 @@ git clone https://github.com/Cqusts/mychat.git
 cd mychat
 ```
 
-⚠️ **`easychat-front/assets/` 下缺两个二进制文件，需要自己下载**：`ffmpeg.exe`、`ffprobe.exe`。
+⚠️ **`mychat-front/assets/` 下缺两个二进制文件，需要自己下载**：`ffmpeg.exe`、`ffprobe.exe`。
 它们几十 MB，不适合进版本库。缺了会导致**上传头像和发送视频报错**，文字、图片、AI 功能不受影响。
 
-下载地址和放置方法见 [easychat-front/assets/README.md](easychat-front/assets/README.md)。
+下载地址和放置方法见 [mychat-front/assets/README.md](mychat-front/assets/README.md)。
 想先跑起来的话这一步可以跳过。
 
 ### 2. 建库导表
 
 ```bash
-mysql -u root -p -e "CREATE DATABASE easychat CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-mysql -u root -p easychat < easychat.sql
+mysql -u root -p -e "CREATE DATABASE mychat CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+mysql -u root -p mychat < mychat.sql
 ```
 
 导完应该有 9 张表。确认一下：
 
 ```bash
-mysql -u root -p -e "USE easychat; SHOW TABLES;"
+mysql -u root -p -e "USE mychat; SHOW TABLES;"
 ```
 
 ### 3. 配置连接信息
@@ -238,39 +238,39 @@ mysql -u root -p -e "USE easychat; SHOW TABLES;"
 |----------|--------|------|
 | `MYSQL_HOST` | `127.0.0.1` | |
 | `MYSQL_PORT` | `3306` | |
-| `MYSQL_DATABASE` | `easychat` | |
+| `MYSQL_DATABASE` | `mychat` | |
 | `MYSQL_USER` | `root` | |
 | `MYSQL_PASSWORD` | `root` | **和你本地不一样就必须设** |
 | `REDIS_HOST` | `127.0.0.1` | |
 | `REDIS_PORT` | `6379` | |
-| `EASYCHAT_HOME` | `D:/easychat/` | 服务端文件目录（头像、图片、视频、日志），**必须可写**；Linux/macOS 必须改 |
+| `MYCHAT_HOME` | `D:/mychat/` | 服务端文件目录（头像、图片、视频、日志），**必须可写**；Linux/macOS 必须改 |
 | `ADMIN_EMAILS` | `admin@example.com` | 用这个邮箱注册的账号能进管理后台 |
-| `EASYCHAT_AI_API_KEY` | — | 大模型 API Key，不配则 AI 功能不可用 |
+| `MYCHAT_AI_API_KEY` | — | 大模型 API Key，不配则 AI 功能不可用 |
 
 ```bash
 # Windows（setx 是永久生效，设完必须重开终端；IDE 也要重启才能读到）
 setx MYSQL_PASSWORD "你的密码"
-setx EASYCHAT_AI_API_KEY "sk-xxxx"
+setx MYCHAT_AI_API_KEY "sk-xxxx"
 
 # Linux / macOS
 export MYSQL_PASSWORD="你的密码"
-export EASYCHAT_HOME="$HOME/easychat/"
-export EASYCHAT_AI_API_KEY="sk-xxxx"
+export MYCHAT_HOME="$HOME/mychat/"
+export MYCHAT_AI_API_KEY="sk-xxxx"
 ```
 
-不想用环境变量的话，直接改 `easychat-java/src/main/resources/application.properties`
+不想用环境变量的话，直接改 `mychat-java/src/main/resources/application.properties`
 里的默认值也行——**但别把真密码提交回 git**。
 
 ### 4. 配置大模型（可选，跳过则只有 IM 功能）
 
-AI 配置在 `easychat-java/src/main/resources/application.yml`：
+AI 配置在 `mychat-java/src/main/resources/application.yml`：
 
 ```yaml
 spring:
   ai:
     openai:
       # 优先读环境变量，读不到才用字面值
-      api-key: "${EASYCHAT_AI_API_KEY:YOUR_API_KEY_HERE}"
+      api-key: "${MYCHAT_AI_API_KEY:YOUR_API_KEY_HERE}"
       base-url: "https://api.deepseek.com"
       chat:
         options:
@@ -300,20 +300,20 @@ IM 功能照常。
 ### 5. 启动后端
 
 ```bash
-cd easychat-java
+cd mychat-java
 mvn clean package -DskipTests
-java -jar target/easychat-1.0.jar
+java -jar target/mychat-1.0.jar
 ```
 
 Windows 控制台如果中文是乱码，先切代码页：
 
 ```bat
 chcp 65001
-java -jar target/easychat-1.0.jar
+java -jar target/mychat-1.0.jar
 ```
 
-> 不想改代码页就用 `java -DLOG_CONSOLE_CHARSET=GBK -jar target/easychat-1.0.jar`。
-> 日志文件 `{EASYCHAT_HOME}/logs/easychat.log` 始终是 UTF-8，任何情况下都能直接看。
+> 不想改代码页就用 `java -DLOG_CONSOLE_CHARSET=GBK -jar target/mychat-1.0.jar`。
+> 日志文件 `{MYCHAT_HOME}/logs/mychat.log` 始终是 UTF-8，任何情况下都能直接看。
 
 启动成功的标志：
 
@@ -334,7 +334,7 @@ AI助手已创建: 架构师小A(Uagentarch)
 ### 6. 启动前端
 
 ```bash
-cd easychat-front
+cd mychat-front
 npm install
 npm run dev
 ```
@@ -359,7 +359,7 @@ npm run build:mac     # macOS
 npm run build:linux   # Linux
 ```
 
-产物在 `easychat-front/installPackages/`。
+产物在 `mychat-front/installPackages/`。
 
 ## 常见问题
 
@@ -367,7 +367,7 @@ npm run build:linux   # Linux
 |------|------|------|
 | 启动报 `Access denied for user 'root'` | 数据库密码不对 | 设 `MYSQL_PASSWORD` 环境变量，Windows 上 `setx` 之后要重开终端/IDE |
 | 启动报 `Unable to connect to Redis` | Redis 没起 | `redis-server` 启动，`redis-cli ping` 确认返回 `PONG` |
-| 启动报 `Table 'easychat.xxx' doesn't exist` | SQL 没导 | 回到第 2 步，确认 9 张表都在 |
+| 启动报 `Table 'mychat.xxx' doesn't exist` | SQL 没导 | 回到第 2 步，确认 9 张表都在 |
 | 上传头像一直转圈 / 报「缺少 ffmpeg 组件」 | 没放 ffmpeg | 见第 1 步 |
 | 控制台中文乱码 | Windows 控制台默认 GBK | `chcp 65001`，或看日志文件 |
 | 通讯录里没有机器人 | 没配 AI Key，助手账号没创建 | 配好 Key 重启后端，账号会自动建 |
@@ -395,7 +395,7 @@ npm run build:linux   # Linux
 
 ## AI 配置项
 
-以下配置都在 `easychat-java/src/main/resources/application.yml`，表格里用点号写法表示层级。
+以下配置都在 `mychat-java/src/main/resources/application.yml`，表格里用点号写法表示层级。
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
@@ -465,9 +465,9 @@ ai:
   coder:
     enabled: true                                   # 默认 false
     # ⚠️ 独立目录，绝对不要指向你自己的仓库——AI 改一半和你手上的改动搅在一起会很难收拾
-    workspace: "${EASYCHAT_AI_WORKSPACE:D:/easychat-ai-workspace}"
+    workspace: "${MYCHAT_AI_WORKSPACE:D:/mychat-ai-workspace}"
     git-url: "https://github.com/你的账号/你fork的仓库.git"
-    base-branch: "${EASYCHAT_BASE_BRANCH:main}"     # 从哪个分支拉出来改
+    base-branch: "${MYCHAT_BASE_BRANCH:main}"     # 从哪个分支拉出来改
 ```
 
 `git-url` 留空时会退而从 `source-repo`（一个本地仓库目录）读 origin 地址，两者配一个即可。
@@ -543,7 +543,7 @@ ai:
 
 ### 跑批
 
-需求集在 `easychat-java/eval-tasks.txt`，按难度分了三层，可以自己改。
+需求集在 `mychat-java/eval-tasks.txt`，按难度分了三层，可以自己改。
 拿到 `groupId`（形如 `G7964...`）和 `sessionId`——F12 网络面板里任意一条群聊请求都能看到。
 
 ```bash
@@ -555,7 +555,7 @@ curl -X POST "http://localhost:5050/api/eval/batch" \
   -H "token: $TOKEN" \
   --data-urlencode "groupId=$GROUP" \
   --data-urlencode "sessionId=$SESSION" \
-  --data-urlencode "requirements@easychat-java/eval-tasks.txt" \
+  --data-urlencode "requirements@mychat-java/eval-tasks.txt" \
   --data-urlencode "repeat=2"
 ```
 
@@ -643,15 +643,30 @@ curl "http://localhost:5050/api/eval/reportText?totalCostYuan=16.6" -H "token: $
 | 配置 | 管什么 | 默认 |
 |------|--------|------|
 | `log.root.level` | 第三方框架 | `info` |
-| `log.app.level` | 项目自己（`com.easychat`，MyBatis 的 SQL 也走这里） | `debug` |
+| `log.app.level` | 项目自己（`com.mychat`，MyBatis 的 SQL 也走这里） | `debug` |
 
 root 之所以不是 `debug`：Spring AI 走 WebClient，DEBUG 级别会把每一个 SSE 分片、每一轮工具调用的
 入参出参都打出来，一次流式回复就是几百行，自己的日志全被冲走。真要排查大模型链路时，
 把 `logback-spring.xml` 里 `org.springframework.ai` 那一行删掉即可。
 
+## 从旧版本（EasyChat）升级
+
+项目已从 `easychat` 更名为 `mychat`，包名、目录、配置项全部跟着变了。
+如果你之前跑过旧版本，有四处需要手工处理：
+
+| 变了什么 | 旧 | 新 | 怎么处理 |
+|---|---|---|---|
+| 数据库名 | `easychat` | `mychat` | 建新库导 `mychat.sql`，或设 `MYSQL_DATABASE=easychat` 继续用旧库 |
+| 文件目录 | `D:/easychat/` | `D:/mychat/` | 把旧目录整个改名，否则已上传的头像和图片会失效 |
+| 环境变量 | `EASYCHAT_*` | `MYCHAT_*` | `MYCHAT_HOME`、`MYCHAT_AI_API_KEY`、`MYCHAT_AI_WORKSPACE` 等 |
+| jar 名 | `easychat-1.0.jar` | `mychat-1.0.jar` | 重新打包即可 |
+
+Redis 里的旧 key（`easychat:*`）不用管，会随 TTL 自然过期。
+数据库**表结构没有任何变化**，只是库名换了。
+
 ## 升级已有数据库
 
-如果你的 `easychat` 库是在引入 AI 功能之前建的，需要跑一次：
+如果你的 `mychat` 库是在引入 AI 功能之前建的，需要跑一次：
 
 ```sql
 ALTER TABLE chat_message MODIFY COLUMN message_content TEXT COMMENT '消息内容';
@@ -669,7 +684,7 @@ MySQL 严格模式下直接抛 `Data too long`，表现就是"群里凭空少了
 - **Spring AI 仍是 milestone 版本**（1.0.0-M6），API 在正式版之前可能有变动。
 - **助手昵称不要互为前缀**。@提及靠昵称字符串匹配，若同时存在「小P」和「小P助手」，`@小P助手` 会同时命中两个。
 - **加好友时的打招呼消息不会触发回复**。加好友走的是 `UserContactService.addContact`，直接插库而不经过 `saveMessage`，所以助手不会回应这条问候。发第二条消息就正常了。
-- **对话记忆的 Redis key 在本次改动中变了**（`easychat:ai:history:{userId}` → `easychat:ai:history:{userId}:{agentId}`）。旧 key 不再被读取，会随 7 天 TTL 自然过期，无需手工迁移。
+- **对话记忆的 Redis key 在本次改动中变了**（`mychat:ai:history:{userId}` → `mychat:ai:history:{userId}:{agentId}`）。旧 key 不再被读取，会随 7 天 TTL 自然过期，无需手工迁移。
 
 ## 后续计划
 
@@ -683,7 +698,7 @@ MySQL 严格模式下直接抛 `Data too long`，表现就是"群里凭空少了
 欢迎提 Issue 和 PR。改动后端记得跑一遍测试：
 
 ```bash
-cd easychat-java
+cd mychat-java
 mvn -DskipTests=false test
 ```
 
@@ -694,9 +709,9 @@ mvn -DskipTests=false test
 
 本项目的 IM 基础框架（Netty 长连接、消息广播、好友群组体系、Electron 客户端）
 源自 **程序员老罗** 的开源教学项目
-[EasyChat](https://space.bilibili.com/499388891)，在此致谢。
+[MyChat](https://space.bilibili.com/499388891)，在此致谢。
 
-在此基础上，本仓库新增的部分主要是 `easychat-java/src/main/java/com/easychat/ai/`
+在此基础上，本仓库新增的部分主要是 `mychat-java/src/main/java/com/mychat/ai/`
 下的 AI Agent 层、多 Agent 编排引擎、代码沙箱，以及前端的流式渲染、@提及选择器、
 AI 助手页。
 
