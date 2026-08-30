@@ -292,7 +292,8 @@ const openWindow = ({ windowId, title = "MyChat", path, width = 960, height = 72
         }
         //打开调试窗口
         if (NODE_ENV === 'development') {
-            newWindow.webContents.openDevTools();
+            //调试时再打开，平时弹出来挡住视频
+            // newWindow.webContents.openDevTools();
         }
 
         newWindow.on('ready-to-show', () => {
