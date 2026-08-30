@@ -705,14 +705,16 @@ mvn -DskipTests=false test
 > `pom.xml` 里 `skipTests` 默认是 `true`，不显式覆盖的话测试会被直接跳过、
 > 结果永远是"成功"。
 
-## 致谢与许可
+## 项目构成
 
-本项目的 IM 基础框架（Netty 长连接、消息广播、好友群组体系、Electron 客户端）
-源自 **程序员老罗** 的开源教学项目
-[MyChat](https://space.bilibili.com/499388891)，在此致谢。
+想快速找到某块代码的话：
 
-在此基础上，本仓库新增的部分主要是 `mychat-java/src/main/java/com/mychat/ai/`
-下的 AI Agent 层、多 Agent 编排引擎、代码沙箱，以及前端的流式渲染、@提及选择器、
-AI 助手页。
+| 位置 | 内容 |
+|------|------|
+| `mychat-java/src/main/java/com/mychat/ai/` | AI Agent 层、多 Agent 编排引擎、代码沙箱、评测套件 |
+| `mychat-java/src/main/java/com/mychat/websocket/` | Netty 长连接与跨节点消息广播 |
+| `mychat-front/src/renderer/src/views/chat/` | 流式渲染、@提及选择器 |
+| `mychat-front/src/main/` | Electron 主进程、本地消息库 |
+| `benchmark/` | 并发连接数与端到端延迟的压测工具 |
 
-> **许可**：仓库暂未附带 LICENSE 文件。二次分发或商用前，请先确认原教学项目的授权条款。
+> **许可**：仓库暂未附带 LICENSE 文件，默认保留所有权利。
