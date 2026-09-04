@@ -53,6 +53,14 @@ public class CoderWorkspace {
      */
     private static final int MAX_OUTPUT_CHARS = 6000;
 
+    private static final boolean IS_WINDOWS =
+            System.getProperty("os.name", "").toLowerCase().contains("win");
+
+    /**
+     * 查找顺序有讲究：.exe 在前，git 才不会被同名的 git.cmd 抢走
+     */
+    private static final String[] WINDOWS_EXECUTABLE_EXTENSIONS = {".exe", ".cmd", ".bat", ""};
+
     @Value("${ai.coder.enabled:false}")
     private Boolean coderEnabled;
 
@@ -154,6 +162,54 @@ public class CoderWorkspace {
             throw new IllegalStateException("切换分支失败：" + checkout.output);
         }
         logger.info("工作区已切到分支 {}（基于 origin/{}）", branch, baseBranch);
+    }
+
+    /**
+     * Windows 上把命令名解析成真实的可执行文件路径。
+     *
+     * 踩过的坑：mvn 的真身是 mvn.cmd，而 Windows 的 CreateProcess 只自动补 .exe、
+     * 不补 .cmd/.bat。所以在 PowerShell 里 `mvn -v` 跑得好好的，
+     * ProcessBuilder 拿同一个 "mvn" 却报"系统找不到指定的文件"——
+     * 默认值 "mvn" 在 Windows 上基本不可能work，实测一整批评测全挂在这上面。
+     *
+     * 不能无脑补 .cmd：git 的真身是 git.exe。所以按 PATH 逐个后缀找，
+     * 找到哪个用哪个；找不到就原样返回，让报错信息保持原意
+     */
+    private List<String> resolveCommand(List<String> command) {
+        if (!IS_WINDOWS || command.isEmpty()) {
+            return command;
+        }
+        String executable = command.get(0);
+        //已经带扩展名或写了路径的，说明用户自己指定了，不要多事
+        if (executable.contains(".") || executable.contains("/") || executable.contains("\\")) {
+            return command;
+        }
+        String resolved = findOnPath(executable);
+        if (resolved == null) {
+            return command;
+        }
+        List<String> result = new ArrayList<>(command);
+        result.set(0, resolved);
+        return result;
+    }
+
+    private String findOnPath(String name) {
+        String path = System.getenv("PATH");
+        if (path == null) {
+            return null;
+        }
+        for (String dir : path.split(File.pathSeparator)) {
+            if (dir.isEmpty()) {
+                continue;
+            }
+            for (String ext : WINDOWS_EXECUTABLE_EXTENSIONS) {
+                File candidate = new File(dir, name + ext);
+                if (candidate.isFile()) {
+                    return candidate.getAbsolutePath();
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -371,7 +427,7 @@ public class CoderWorkspace {
      * 这样即使模型想构造 "; rm -rf /" 之类的内容，也只会变成某个参数的字面值，不会被执行
      */
     private ExecResult exec(File workDir, List<String> command) throws Exception {
-        ProcessBuilder builder = new ProcessBuilder(command);
+        ProcessBuilder builder = new ProcessBuilder(resolveCommand(command));
         builder.directory(workDir);
         builder.redirectErrorStream(true);
         //输出是按UTF-8读的，但maven在中文Windows上默认按GBK写，

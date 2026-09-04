@@ -474,8 +474,10 @@ ai:
 
 前置条件：
 
-- `git` 和 `mvn` 在**服务端进程**的 PATH 里。注意 IDE 启动的进程不一定继承你终端的 PATH，
-  不确定就直接填绝对路径（Windows 上 maven 要写 `mvn.cmd`）：
+- `git` 和 `mvn` 在**服务端进程**的 PATH 里。Windows 上会自动按 PATH 解析出
+  `git.exe` / `mvn.cmd` 的真实路径（`CreateProcess` 只补 `.exe` 不补 `.cmd`，
+  不做这一步 `mvn` 一定起不来）。注意 IDE 启动的进程不一定继承你终端的 PATH，
+  不确定就直接填绝对路径：
   ```yaml
   maven-command: "D:/apache-maven-3.9.6/bin/mvn.cmd"
   git-command: "git"
