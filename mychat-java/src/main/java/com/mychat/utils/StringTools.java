@@ -130,5 +130,17 @@ public class StringTools {
     public static final String getChatSessionId4Group(String groupId) {
         return encodeByMD5(groupId);
     }
+
+    /**
+     * 手机号中间四位脱敏，仅处理11位纯数字
+     */
+    public static String maskPhone(String phone) {
+        // 非11位纯数字（含null、空串、带空格/连字符等）原样返回
+        if (phone == null || !phone.matches("\\d{11}")) {
+            return phone;
+        }
+        // 此处依赖上面已校验长度恒为11，substring(7)可安全取到后四位
+        return phone.substring(0, 3) + "****" + phone.substring(7);
+    }
 }
 
