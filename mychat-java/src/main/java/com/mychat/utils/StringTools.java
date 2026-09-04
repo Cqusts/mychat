@@ -127,6 +127,13 @@ public class StringTools {
         return content;
     }
 
+    public static String maskPhone(String phone) {
+        if (phone == null || phone.length() != 11 || !phone.matches("\\d{11}")) {
+            return phone;
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(7);
+    }
+
     public static final String getChatSessionId4Group(String groupId) {
         return encodeByMD5(groupId);
     }
