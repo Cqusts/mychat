@@ -130,5 +130,12 @@ public class StringTools {
     public static final String getChatSessionId4Group(String groupId) {
         return encodeByMD5(groupId);
     }
+
+    public static String maskMobile(String mobile) {
+        if (mobile == null || !mobile.matches("\\d{11}")) {
+            return mobile;
+        }
+        return mobile.substring(0, 3) + "****" + mobile.substring(7);
+    }
 }
 
