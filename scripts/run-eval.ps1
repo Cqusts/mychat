@@ -118,8 +118,8 @@ function Find-ValidToken {
                 Write-Ok "token: $candidate"
                 return $candidate
             }
-            if ($r.info -match "不在这个群") { $liveButNotMember++; continue }
-            if ($r.info -match "登录")       { continue }
+            if ($r.info -match "不在这个群|请求参数错误") { $liveButNotMember++; continue }
+            if ($r.info -match "登录")                    { continue }
             #既不是登录失效也不是群成员问题，说明 token 是好的、是别的配置没开
             throw "token 有效，但接口报错：$($r.info)"
         } catch {

@@ -89,7 +89,9 @@ public class ChatController extends ABaseController {
     private void checkGroupMember(String userId, String contactId) {
         UserContact contact = userContactService.getUserContactByUserIdAndContactId(userId, contactId);
         if (contact == null) {
-            throw new BusinessException(ResponseCodeEnum.CODE_600);
+            //别用CODE_600("请求参数错误")：参数本身是好的，是这个人不在群里。
+            //笼统的错误码会让调用方以为自己传错了，实际排查方向完全跑偏
+            throw new BusinessException("你不在这个群里");
         }
     }
 
