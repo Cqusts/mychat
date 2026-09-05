@@ -37,7 +37,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+# 注意：这里刻意不设 [Console]::OutputEncoding。
+# PS 5.1 下设成 UTF8 会让中文每个字渲染两遍（"查找"显示成"查查找找"）。
+# 脚本自己的中文是 .NET 字符串，输出到 GBK 控制台由 .NET 自动转换，本来就不会乱；
+# 真正需要处理的是 API 响应的字节解码，那个在 Invoke-Api 里单独做
 
 $SmokeRequirement = "给 StringTools 增加一个手机号脱敏方法，中间四位替换成星号，并补上单元测试"
 
@@ -79,6 +82,8 @@ function Invoke-Api {
     大部分已经失效，所以逐个拿去调接口验活
 #>
 function Find-ValidToken {
+    param([string]$RequireGroupId = "")
+
     Write-Step "查找可用 token"
     $candidates = @()
     Get-ChildItem $env:APPDATA -Recurse -Depth 2 -Filter config.json -ErrorAction SilentlyContinue |
@@ -96,20 +101,35 @@ function Find-ValidToken {
     }
     Write-Host "  找到 $($candidates.Count) 个候选，逐个验活…"
 
+    #给了群号就必须拿群号去验：/eval/status 不校验群成员，
+    #任何没过期的账号都能通过它，挑出来的很可能是另一个不在群里的账号，
+    #跑批时才报"你不在这个群里"
+    $probePath = "/eval/status"
+    if ($RequireGroupId) {
+        $probePath = "/chat/queryAiTaskRunning?contactId=$RequireGroupId"
+        Write-Host "  按群 $RequireGroupId 校验成员身份"
+    }
+
+    $liveButNotMember = 0
     foreach ($candidate in ($candidates | Select-Object -Unique)) {
         try {
-            $r = Invoke-Api -Path "/eval/status" -UseToken $candidate
+            $r = Invoke-Api -Path $probePath -UseToken $candidate
             if ($r.status -eq "success") {
                 Write-Ok "token: $candidate"
                 return $candidate
             }
-            if ($r.info -and $r.info -notmatch "登录") {
-                # 不是登录问题，说明 token 是好的，是别的配置没开
-                throw "token 有效，但接口报错：$($r.info)"
-            }
+            if ($r.info -match "不在这个群") { $liveButNotMember++; continue }
+            if ($r.info -match "登录")       { continue }
+            #既不是登录失效也不是群成员问题，说明 token 是好的、是别的配置没开
+            throw "token 有效，但接口报错：$($r.info)"
         } catch {
             if ($_.Exception.Message -match "token 有效") { throw }
         }
+    }
+
+    if ($liveButNotMember -gt 0) {
+        throw ("有 $liveButNotMember 个 token 还有效，但对应账号都不在群 $RequireGroupId 里。" +
+               "请用那个在群里的账号登录客户端，然后重跑本脚本。")
     }
     throw "所有 token 都失效了。去客户端退出登录再登一次，然后重跑本脚本。"
 }
@@ -149,17 +169,24 @@ function Show-Report {
 
 # ==================== 主流程 ====================
 
-if (-not $Token)   { $Token = Find-ValidToken } else { Write-Ok "使用传入的 token" }
-
 if ($ReportOnly) {
+    #出报告不涉及群，随便一个有效 token 就行
+    if (-not $Token) { $Token = Find-ValidToken }
     Show-Report -UseToken $Token -Cost $CostYuan
     return
 }
 
+#顺序要紧：先拿到群号，才能按"是不是这个群的成员"去挑 token
 if (-not $GroupId -or -not $SessionId) {
     $info = Find-SessionInfo
     if (-not $GroupId)   { $GroupId   = $info.GroupId }
     if (-not $SessionId) { $SessionId = $info.SessionId }
+}
+
+if (-not $Token) {
+    $Token = Find-ValidToken -RequireGroupId $GroupId
+} else {
+    Write-Ok "使用传入的 token"
 }
 
 # 需求集
