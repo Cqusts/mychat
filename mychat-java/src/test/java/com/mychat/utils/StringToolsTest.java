@@ -19,7 +19,14 @@ class StringToolsTest {
 
     @Test
     void null入参抛异常() {
-        assertThrows(IllegalArgumentException.class, () -> StringTools.maskMobile(null));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> StringTools.maskMobile(null));
+        assertEquals("手机号必须为11位数字，实际: null", ex.getMessage());
+    }
+
+    @Test
+    void 空字符串抛异常() {
+        assertThrows(IllegalArgumentException.class, () -> StringTools.maskMobile(""));
     }
 
     @Test
@@ -35,5 +42,20 @@ class StringToolsTest {
     @Test
     void 含非数字字符抛异常() {
         assertThrows(IllegalArgumentException.class, () -> StringTools.maskMobile("1381234567a"));
+    }
+
+    @Test
+    void 纯字母11位也抛异常() {
+        assertThrows(IllegalArgumentException.class, () -> StringTools.maskMobile("abcdefghijk"));
+    }
+
+    @Test
+    void 含空格的11位号码抛异常() {
+        assertThrows(IllegalArgumentException.class, () -> StringTools.maskMobile("138 1234567"));
+    }
+
+    @Test
+    void 带前导空格的11位号码抛异常() {
+        assertThrows(IllegalArgumentException.class, () -> StringTools.maskMobile(" 13812345678"));
     }
 }
