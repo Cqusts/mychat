@@ -9,7 +9,10 @@ mychat-front/assets/ffprobe.exe
 target/
 mychat-front/out/
 
-# 运行时产生的日志目录，不该进版本库
-logs/
-mychat/
-mychat/
+# 运行时产生的目录（日志、上传的头像和图片），不该进版本库。
+# 必须带前导斜杠锚定到仓库根：不带斜杠的 mychat/ 会匹配任意层级的同名目录，
+# 把整个 com/mychat/ 源码树也一起忽略掉——已跟踪的文件不受影响，
+# 但新增的源文件会被静默吞掉，本地编译得好好的、推上去却缺文件
+/logs/
+/easychat/
+/mychat/
