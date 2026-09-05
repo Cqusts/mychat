@@ -30,60 +30,60 @@ class AGlobalExceptionHandlerControllerTest {
     }
 
     @Test
-    void 参数校验失败映射为40001() {
+    void 参数校验失败MethodArgumentNotValidException映射为600() {
         MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         ResponseVO vo = (ResponseVO) handler.handleException(ex, mockRequest());
-        assertEquals(ResponseCodeEnum.CODE_40001.getCode(), vo.getCode());
-        assertEquals(ResponseCodeEnum.CODE_40001.getMsg(), vo.getInfo());
+        assertEquals(ResponseCodeEnum.CODE_600.getCode(), vo.getCode());
+        assertEquals(ResponseCodeEnum.CODE_600.getMsg(), vo.getInfo());
         assertEquals("error", vo.getStatus());
     }
 
     @Test
-    void HandlerMethodValidationException映射为40001() throws Exception {
+    void HandlerMethodValidationException映射为600() throws Exception {
         HandlerMethodValidationException ex = mock(HandlerMethodValidationException.class);
         ResponseVO vo = (ResponseVO) handler.handleException(ex, mockRequest());
-        assertEquals(ResponseCodeEnum.CODE_40001.getCode(), vo.getCode());
-        assertEquals(ResponseCodeEnum.CODE_40001.getMsg(), vo.getInfo());
+        assertEquals(ResponseCodeEnum.CODE_600.getCode(), vo.getCode());
+        assertEquals(ResponseCodeEnum.CODE_600.getMsg(), vo.getInfo());
         assertEquals("error", vo.getStatus());
     }
 
     @Test
-    void ConstraintViolationException映射为40001() {
+    void ConstraintViolationException映射为600() {
         ResponseVO vo = (ResponseVO) handler.handleException(
                 new ConstraintViolationException("参数校验失败", java.util.Collections.emptySet()),
                 mockRequest());
-        assertEquals(ResponseCodeEnum.CODE_40001.getCode(), vo.getCode());
-        assertEquals(ResponseCodeEnum.CODE_40001.getMsg(), vo.getInfo());
+        assertEquals(ResponseCodeEnum.CODE_600.getCode(), vo.getCode());
+        assertEquals(ResponseCodeEnum.CODE_600.getMsg(), vo.getInfo());
         assertEquals("error", vo.getStatus());
     }
 
     @Test
-    void BindException映射为40001() {
+    void BindException映射为600() {
         ResponseVO vo = (ResponseVO) handler.handleException(
                 new BindException(new org.springframework.validation.BeanPropertyBindingResult(new Object(), "obj")),
                 mockRequest());
-        assertEquals(ResponseCodeEnum.CODE_40001.getCode(), vo.getCode());
-        assertEquals(ResponseCodeEnum.CODE_40001.getMsg(), vo.getInfo());
+        assertEquals(ResponseCodeEnum.CODE_600.getCode(), vo.getCode());
+        assertEquals(ResponseCodeEnum.CODE_600.getMsg(), vo.getInfo());
         assertEquals("error", vo.getStatus());
     }
 
     @Test
-    void MethodArgumentTypeMismatchException映射为40001() {
+    void MethodArgumentTypeMismatchException映射为600() {
         ResponseVO vo = (ResponseVO) handler.handleException(
                 new MethodArgumentTypeMismatchException("abc", Integer.class, "messageType", null, null),
                 mockRequest());
-        assertEquals(ResponseCodeEnum.CODE_40001.getCode(), vo.getCode());
-        assertEquals(ResponseCodeEnum.CODE_40001.getMsg(), vo.getInfo());
+        assertEquals(ResponseCodeEnum.CODE_600.getCode(), vo.getCode());
+        assertEquals(ResponseCodeEnum.CODE_600.getMsg(), vo.getInfo());
         assertEquals("error", vo.getStatus());
     }
 
     @Test
-    void HttpMessageNotReadableException映射为40002() {
+    void HttpMessageNotReadableException映射为500() {
         ResponseVO vo = (ResponseVO) handler.handleException(
                 new HttpMessageNotReadableException("请求体格式错误"),
                 mockRequest());
-        assertEquals(ResponseCodeEnum.CODE_40002.getCode(), vo.getCode());
-        assertEquals(ResponseCodeEnum.CODE_40002.getMsg(), vo.getInfo());
+        assertEquals(ResponseCodeEnum.CODE_500.getCode(), vo.getCode());
+        assertEquals(ResponseCodeEnum.CODE_500.getMsg(), vo.getInfo());
         assertEquals("error", vo.getStatus());
     }
 

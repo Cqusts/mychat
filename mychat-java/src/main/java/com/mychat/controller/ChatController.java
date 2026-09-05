@@ -3,6 +3,7 @@ package com.mychat.controller;
 import com.mychat.annotation.GlobalInterceptor;
 import com.mychat.entity.config.AppConfig;
 import com.mychat.entity.constants.Constants;
+import com.mychat.entity.constants.MessageConstants;
 import com.mychat.entity.dto.MessageSendDto;
 import com.mychat.entity.dto.TokenUserInfoDto;
 import com.mychat.entity.enums.MessageTypeEnum;
@@ -100,7 +101,7 @@ public class ChatController extends ABaseController {
     @GlobalInterceptor
     public ResponseVO sendMessage(HttpServletRequest request,
                                   @NotEmpty String contactId,
-                                  @NotEmpty @Size(max = 500) String messageContent,
+                                  @NotEmpty @Size(max = MessageConstants.MAX_CONTENT_LENGTH) String messageContent,
                                   @NotNull Integer messageType,
                                   Long fileSize,
                                   String fileName,

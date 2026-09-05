@@ -91,4 +91,29 @@ class StringToolsTest {
     void maskMobile含非数字符号原样返回() {
         assertEquals("138-1234-5678", StringTools.maskMobile("138-1234-5678"));
     }
+
+    @Test
+    void maskMobile非1开头的11位数字也脱敏() {
+        assertEquals("238****5678", StringTools.maskMobile("23812345678"));
+    }
+
+    @Test
+    void maskMobile前导0的11位数字也脱敏() {
+        assertEquals("012****7890", StringTools.maskMobile("01234567890"));
+    }
+
+    @Test
+    void maskMobile全0的11位数字脱敏() {
+        assertEquals("000****0000", StringTools.maskMobile("00000000000"));
+    }
+
+    @Test
+    void maskMobile已脱敏字符串原样返回() {
+        assertEquals("138****5678", StringTools.maskMobile("138****5678"));
+    }
+
+    @Test
+    void maskMobile长度11但含空格原样返回() {
+        assertEquals("138 1234 5678", StringTools.maskMobile("138 1234 5678"));
+    }
 }
