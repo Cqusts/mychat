@@ -26,12 +26,12 @@ class StringToolsTest {
     }
 
     @Test
-    void 10位入参原样返回() {
+    void 十位入参原样返回() {
         assertEquals("1381234123", StringTools.desensitizePhone("1381234123"));
     }
 
     @Test
-    void 12位入参原样返回() {
+    void 十二位入参原样返回() {
         assertEquals("138123412345", StringTools.desensitizePhone("138123412345"));
     }
 }
