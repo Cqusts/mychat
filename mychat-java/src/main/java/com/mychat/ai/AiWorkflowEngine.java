@@ -3,6 +3,7 @@ package com.mychat.ai;
 import com.mychat.entity.constants.Constants;
 import com.mychat.ai.eval.AiEvalRecorder;
 import com.mychat.entity.dto.AiWorkflowTaskDto;
+import com.mychat.entity.dto.PlanChangeDto;
 import com.mychat.entity.dto.TokenUserInfoDto;
 import com.mychat.entity.enums.AiWorkflowStageEnum;
 import com.mychat.entity.enums.MessageTypeEnum;
@@ -80,6 +81,25 @@ public class AiWorkflowEngine {
                     + "\n命名是对应的：会话=ChatSession，消息=ChatMessage，好友/联系人=UserContact，"
                     + "群=GroupInfo，用户=UserInfo。";
 
+    /**
+     * 方案末尾必须带的两个结构化小节。
+     *
+     * 格式是给正则解析用的，所以要求写死。解析失败就降级成纯文本方案，
+     * 不会把流程卡住——但那样编码阶段又得自己找文件，也就回到了老问题
+     */
+    private static final String PLAN_FORMAT =
+            "\n\n正文之后必须附上两个小节，格式严格照抄，不要改标题也不要加别的符号：\n"
+                    + "【改动清单】\n"
+                    + "- 文件路径 | 动作 | 具体改什么\n"
+                    + "- 文件路径 | 动作 | 具体改什么\n"
+                    + "【验收标准】\n"
+                    + "- 一句话描述一个可验证的行为\n"
+                    + "- 一句话描述一个可验证的行为\n"
+                    + "改动清单里的路径必须是相对仓库根目录的完整路径，"
+                    + "比如 mychat-java/src/main/java/com/mychat/service/impl/ChatSessionServiceImpl.java；"
+                    + "改一个后端功能通常要同时列出 Controller、Service、Mapper接口 和 Mapper.xml。"
+                    + "验收标准要写成能用单元测试判定的行为，不要写「代码质量好」这种没法验证的话。";
+
     private static final String NO_MENTION_RULE =
             "\n注意：流程的下一棒由系统自动调度，你不需要、也不要@任何人。";
 
@@ -110,6 +130,15 @@ public class AiWorkflowEngine {
 
     @Value("${ai.coder.stall-limit:20}")
     private Integer stallLimit;
+
+    /**
+     * 方案阶段是否允许查看真实代码。单独开关是为了能做A/B对照
+     */
+    @Value("${ai.workflow.plan-with-code:true}")
+    private Boolean planWithCodeEnabled;
+
+    @Value("${ai.workflow.plan-tool-calls:15}")
+    private Integer planToolCalls;
 
     @Value("${ai.workflow.enabled:true}")
     private Boolean workflowEnabled;
@@ -434,13 +463,19 @@ public class AiWorkflowEngine {
 
     private AiWorkflowTaskDto runDesign(AiWorkflowTaskDto task) {
         AiAgentDefinition agent = aiAgentRegistry.getById(designAgentId);
+        boolean canExplore = planWithCodeEnabled && coderWorkspace.isEnabled();
+
         String systemPrompt = personaOf(agent)
                 + "\n你现在在一条需求流水线上工作，负责【方案设计】这一环。"
-                + "基于给出的需求分析，输出具体技术方案：涉及哪些模块和文件、数据结构怎么变、"
-                + "接口怎么定、主要风险是什么。"
+                + (canExplore ? PROJECT_MAP
+                        + "\n先用 findFiles 把需求丢进去看看真实代码，再用 outline 确认关键文件的结构，"
+                        + "拿不准现有实现时才 readFiles。看过代码再写方案，不要凭想象。"
+                        : "")
+                + "\n输出具体技术方案：数据结构怎么变、接口怎么定、主要风险是什么。"
                 + "项目技术栈是 Spring Boot 3 + Netty WebSocket + MySQL + MyBatis + Redis/Redisson"
                 + " + Vue3/Electron，方案要落到这套栈上，不要泛泛而谈。"
-                + "控制在300字以内。"
+                + "正文控制在300字以内。"
+                + PLAN_FORMAT
                 + STAGE_RULES;
 
         StringBuilder userPrompt = new StringBuilder();
@@ -455,11 +490,30 @@ public class AiWorkflowEngine {
             userPrompt.append("请输出你的技术方案。");
         }
 
-        String output = callAgent(agent, task, systemPrompt, userPrompt.toString());
+        String output;
+        if (canExplore) {
+            //让架构师能看真实代码。工具是只读的：方案还没过评审就动文件，
+            //被打回时收不回来，职责也乱了
+            CodeExplorerTools explorer = new CodeExplorerTools(coderWorkspace,
+                    new ToolBudget(aiTaskControl, task.getTaskId(),
+                            planToolCalls, stageDeadlineMinutes, stallLimit));
+            output = callAgent(agent, task, systemPrompt, userPrompt.toString(),
+                    explorer, coderTimeoutSeconds);
+        } else {
+            output = callAgent(agent, task, systemPrompt, userPrompt.toString());
+        }
         if (output == null) {
             return failTask(task, "方案设计阶段调用失败");
         }
         task.setTechPlan(output);
+        //把方案里的改动清单和验收标准抽成结构化数据，
+        //编码阶段直接拿文件清单动手，不用再自己找
+        List<PlanChangeDto> changes = TechPlanParser.parseChanges(
+                output, canExplore ? coderWorkspace.getCodeIndex() : null);
+        List<String> acceptance = TechPlanParser.parseAcceptance(output);
+        task.setPlanChanges(changes);
+        task.setAcceptance(acceptance);
+        TechPlanParser.logQuality(task.getTaskId(), changes, acceptance);
         task.setStage(AiWorkflowStageEnum.REVIEW.name());
         saveTask(task);
         return task;
@@ -585,6 +639,7 @@ public class AiWorkflowEngine {
 
         TokenUserInfoDto agentToken = tokenOf(codingAgentId);
         CoderTools tools = newCoderTools(task);
+        boolean hasPlanChanges = task.getPlanChanges() != null && !task.getPlanChanges().isEmpty();
 
         //这一步要读文件、改文件、跑maven，动辄好几分钟，
         //群里不说一声的话看起来就像流程卡死了
@@ -594,12 +649,18 @@ public class AiWorkflowEngine {
         String systemPrompt = personaOf(agent)
                 + "\n你现在在一条需求流水线上工作，负责【编码实现】这一环，要真的改代码。"
                 + PROJECT_MAP
-                + "\n固定的工作顺序，别跳步："
-                + "\n1. 先调 findFiles，把需求原话直接丢进去，它会按相关度给出最该改的文件；"
-                + "\n2. 对候选文件调 outline 看骨架，确认是不是要找的那个（比 readFile 省很多）；"
-                + "\n3. 选定之后用 readFiles 一次把要改的几个文件全读完，不要一个一个读；"
-                + "\n4. 想清楚全部改动之后，用 applyEdits 一次性提交，不要一处一处调 replaceInFile；"
-                + "\n5. 最后调 compile 验证，不通过就根据报错继续修。"
+                + (hasPlanChanges
+                        ? "\n方案里已经给出了改动清单，直接照着做，不要再花工具调用去找文件："
+                                + "\n1. 用 readFiles 一次把清单里的文件全读完；"
+                                + "\n2. 想清楚全部改动之后，用 applyEdits 一次性提交；"
+                                + "\n3. 调 compile 验证，不通过就根据报错继续修。"
+                                + "\n只有清单明显遗漏了文件时才用 findFiles 补，不要一上来就重新找一遍。"
+                        : "\n固定的工作顺序，别跳步："
+                                + "\n1. 先调 findFiles，把需求原话直接丢进去，它会按相关度给出最该改的文件；"
+                                + "\n2. 对候选文件调 outline 看骨架，确认是不是要找的那个（比 readFile 省很多）；"
+                                + "\n3. 选定之后用 readFiles 一次把要改的几个文件全读完，不要一个一个读；"
+                                + "\n4. 想清楚全部改动之后，用 applyEdits 一次性提交；"
+                                + "\n5. 最后调 compile 验证，不通过就根据报错继续修。")
                 + "\n为什么强调一次性：你每调一次工具，前面所有的对话历史都要重新发一遍，"
                 + "第20轮的开销是第2轮的十倍。轮次翻倍，成本翻四倍。"
                 + "跨文件的改动一次提交，比分十次提交便宜一个数量级，也更容易在预算内做完。"
@@ -618,7 +679,8 @@ public class AiWorkflowEngine {
         String userPrompt = "【原始需求】\n" + task.getRequirement() + "\n\n"
                 + "【需求分析】\n" + task.getRequirementDoc() + "\n\n"
                 + "【评审通过的技术方案】\n" + task.getTechPlan() + "\n\n"
-                + "【评审意见，实现时要一并满足】\n" + task.getReviewResult() + "\n\n"
+                + TechPlanParser.renderForCoder(task.getPlanChanges())
+                + "\n【评审意见，实现时要一并满足】\n" + task.getReviewResult() + "\n\n"
                 + "请按方案改代码。";
 
         String output = callAgent(agent, task, systemPrompt, userPrompt, tools, coderTimeoutSeconds);

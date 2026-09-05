@@ -95,6 +95,17 @@ public class AiWorkflowTaskDto implements Serializable {
      * 首次编译是否直接通过（没让模型返工修）。
      * 评测用：这个数直接反映编码Agent的实际可用性
      */
+    /**
+     * 方案里解析出来的改动清单。结构化之后编码阶段就不用自己重新定位文件了——
+     * 实测 100% 的失败都发生在那个环节
+     */
+    private List<PlanChangeDto> planChanges;
+
+    /**
+     * 方案里的验收标准，交给测试阶段变成可执行的用例
+     */
+    private List<String> acceptance;
+
     private Boolean firstCompilePass;
 
     /**
@@ -110,6 +121,24 @@ public class AiWorkflowTaskDto implements Serializable {
     public AiWorkflowTaskDto() {
         this.retryCount = 0;
         this.reviewHistory = new ArrayList<>();
+        this.planChanges = new ArrayList<>();
+        this.acceptance = new ArrayList<>();
+    }
+
+    public List<PlanChangeDto> getPlanChanges() {
+        return planChanges;
+    }
+
+    public void setPlanChanges(List<PlanChangeDto> planChanges) {
+        this.planChanges = planChanges;
+    }
+
+    public List<String> getAcceptance() {
+        return acceptance;
+    }
+
+    public void setAcceptance(List<String> acceptance) {
+        this.acceptance = acceptance;
     }
 
     public Boolean getFirstCompilePass() {
