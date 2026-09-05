@@ -543,7 +543,34 @@ ai:
 
 重启后端，并确认那个群里 5 个角色助手都在（群详情 → 助手）。
 
-### 跑批
+### 跑批（一键脚本）
+
+Windows 上直接用 `scripts/run-eval.ps1`，token、groupId、sessionId 都会自动找：
+
+```powershell
+# 先试水一条，确认环境通了（约 4~8 分钟）
+.\scripts\run-eval.ps1 -SmokeTest
+
+# 正式跑：10 条需求各 2 次
+.\scripts\run-eval.ps1
+
+# 跑完补上 token 成本重新出报告
+.\scripts\run-eval.ps1 -ReportOnly -CostYuan 16.6
+```
+
+脚本做了这几件手工跑很容易踩坑的事：
+
+| 坑 | 脚本怎么处理 |
+|---|---|
+| token 不知道是哪个 | 扫 electron-store 的 `config.json`，逐个调接口验活 |
+| groupId / sessionId 要手抄 | 从后端日志的群消息 JSON 里正则抓最后一条 |
+| PowerShell 中文乱码 | 拿响应原始字节按 UTF-8 解，不走 `Invoke-RestMethod` 的默认解码 |
+| 新旧数据混在一起 | 跑批前自动 clear 并校验 `recorded == 0` |
+| 忘了跑完要看报告 | 自动轮询到结束，出报告并存成带时间戳的文件 |
+
+> 脚本本身存成了 UTF-8 **带 BOM** —— PowerShell 5.1 读不带 BOM 的 `.ps1` 会按 ANSI 解码，里面的中文会全变乱码。
+
+### 手工跑批
 
 需求集在 `mychat-java/eval-tasks.txt`，按难度分了三层，可以自己改。
 拿到 `groupId`（形如 `G7964...`）和 `sessionId`——F12 网络面板里任意一条群聊请求都能看到。
