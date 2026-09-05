@@ -31,15 +31,16 @@
         <result column="area_code" property="areaCode"/>
         <!--最后离开时间-->
         <result column="last_off_time" property="lastOffTime"/>
+        <!--最后活跃时间-->
+        <result column="last_active_time" property="lastActiveTime"/>
     </resultMap>
-
 
     <!-- 通用查询结果列-->
     <sql id="base_column_list">
         user_id
         ,email,nick_name,join_type,
 		 sex,password,personal_signature,status,create_time,
-		 last_login_time,area_name,area_code,last_off_time
+		 last_login_time,area_name,area_code,last_off_time,last_active_time
     </sql>
 
     <sql id="base_condition_filed">
@@ -532,6 +533,9 @@
             </if>
             <if test="bean.lastOffTime != null">
                 last_off_time = #{bean.lastOffTime},
+            </if>
+            <if test="bean.lastActiveTime != null">
+                last_active_time = #{bean.lastActiveTime},
             </if>
         </set>
         where user_id=#{userId}

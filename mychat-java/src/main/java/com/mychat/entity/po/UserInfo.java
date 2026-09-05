@@ -87,6 +87,12 @@ public class UserInfo implements Serializable {
      */
     private Long lastOffTime;
 
+    /**
+     * 最后活跃时间
+     */
+    @JsonIgnore
+    private Date lastActiveTime;
+
     private Integer onlineType;
 
     public Integer getOnlineType() {
@@ -203,6 +209,14 @@ public class UserInfo implements Serializable {
 
     public Long getLastOffTime() {
         return this.lastOffTime;
+    }
+
+    public Date getLastActiveTime() {
+        return lastActiveTime;
+    }
+
+    public void setLastActiveTime(Date lastActiveTime) {
+        this.lastActiveTime = lastActiveTime;
     }
 
     @Override

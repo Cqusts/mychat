@@ -25,6 +25,8 @@ import com.mychat.utils.CopyTools;
 import com.mychat.utils.StringTools;
 import com.mychat.websocket.MessageHandler;
 import org.apache.commons.lang3.ArrayUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,6 +44,8 @@ import java.util.stream.Collectors;
  */
 @Service("userInfoService")
 public class UserInfoServiceImpl implements UserInfoService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserInfoServiceImpl.class);
 
     @Resource
     private UserInfoMapper<UserInfo, UserInfoQuery> userInfoMapper;
@@ -265,6 +269,15 @@ public class UserInfoServiceImpl implements UserInfoService {
         String token = StringTools.encodeByMD5(tokenUserInfoDto.getUserId() + StringTools.getRandomString(Constants.LENGTH_20));
         tokenUserInfoDto.setToken(token);
         redisComponet.saveTokenUserInfoDto(tokenUserInfoDto);
+
+        //更新最后活跃时间，失败不阻断登录
+        try {
+            UserInfo activeUpdate = new UserInfo();
+            activeUpdate.setLastActiveTime(new Date());
+            this.userInfoMapper.updateByUserId(activeUpdate, userInfo.getUserId());
+        } catch (Exception e) {
+            logger.warn("更新用户最后活跃时间失败,userId:{}", userInfo.getUserId(), e);
+        }
 
         UserInfoVO userInfoVO = CopyTools.copy(userInfo, UserInfoVO.class);
         userInfoVO.setToken(tokenUserInfoDto.getToken());
