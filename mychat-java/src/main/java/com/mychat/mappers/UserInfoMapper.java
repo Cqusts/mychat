@@ -45,10 +45,16 @@ public interface UserInfoMapper<T,P> extends BaseMapper<T,P> {
 	 Integer deleteByEmail(@Param("email") String email);
 
 
-	/**
-	 * 根据Email获取对象
-	 */
-	 T selectByEmail(@Param("email") String email);
+    /**
+     * 根据Email获取对象
+     */
+    T selectByEmail(@Param("email") String email);
+
+
+    /**
+     * 更新最后活跃时间
+     */
+    Integer updateLastActiveTime(@Param("userId") String userId, @Param("lastActiveTime") java.util.Date lastActiveTime);
 
 
 }

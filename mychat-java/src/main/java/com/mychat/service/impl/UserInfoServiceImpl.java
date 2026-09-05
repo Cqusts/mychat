@@ -261,6 +261,9 @@ public class UserInfoServiceImpl implements UserInfoService {
             throw new BusinessException("此账号已经在别处登录，请退出后再登录");
         }
 
+        //更新最后活跃时间
+        this.userInfoMapper.updateLastActiveTime(userInfo.getUserId(), new Date());
+
         //保存登录信息到redis中
         String token = StringTools.encodeByMD5(tokenUserInfoDto.getUserId() + StringTools.getRandomString(Constants.LENGTH_20));
         tokenUserInfoDto.setToken(token);
