@@ -126,6 +126,13 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private Integer groupContextSize;
 
     /**
+     * 消息内容最大允许长度（字符数）。超长会抛BusinessException并返回明确提示。
+     * 默认5000，可通过配置 message.max-length 调整
+     */
+    @Value("${message.max-length:5000}")
+    private Integer maxMessageLength;
+
+    /**
      * 根据条件查询列表
      */
     @Override
@@ -236,10 +243,21 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     }
 
     /**
+     * 校验消息内容是否超过最大允许长度。
+     * null或空内容不校验（上层@NotEmpty已保证非空），只对超长抛业务异常。
+     */
+    private void checkMessageContentLength(String content) {
+        if (content != null && content.length() > maxMessageLength) {
+            throw new BusinessException("messageContent长度超过限制，最大允许" + maxMessageLength + "字符");
+        }
+    }
+
+    /**
      * @param agentDepth 当前是助手接话的第几轮。真人发言为0，助手的回复递增，
      *                   用来给助手之间的互相接话封顶
      */
     private MessageSendDto saveMessage(ChatMessage chatMessage, TokenUserInfoDto tokenUserInfoDto, int agentDepth) {
+        checkMessageContentLength(chatMessage.getMessageContent());
         //AI助手不是真人，不需要先建立好友关系才能收发消息，跳过这一步校验
         if (!aiAgentRegistry.isAgent(tokenUserInfoDto.getUserId())) {
             List<String> contactList = redisComponet.getUserContactList(tokenUserInfoDto.getUserId());
