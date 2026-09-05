@@ -546,10 +546,13 @@ public class AiWorkflowEngine {
         }
 
         String branch = "ai/task-" + task.getTaskId().substring(0, 8);
-        task.setCodeBranch(branch);
 
         try {
             coderWorkspace.prepareBranch(branch);
+            //工作区准备好了才算真的进了编码阶段。
+            //评测里 enteredCoding 是靠 codeBranch 判断的，提前赋值会把
+            //"clone 都没拉下来"的任务也算进"编译一次通过率"的分母，把这个指标稀释掉
+            task.setCodeBranch(branch);
         } catch (Exception e) {
             logger.error("准备代码工作区失败, taskId:{}", task.getTaskId(), e);
             return failTask(task, "准备代码工作区失败：" + e.getMessage());
