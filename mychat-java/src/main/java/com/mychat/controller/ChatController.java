@@ -1,6 +1,7 @@
 package com.mychat.controller;
 
 import com.mychat.annotation.GlobalInterceptor;
+import com.mychat.annotation.LengthLimit;
 import com.mychat.entity.config.AppConfig;
 import com.mychat.entity.constants.Constants;
 import com.mychat.entity.dto.MessageSendDto;
@@ -28,7 +29,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import org.springframework.validation.annotation.Validated;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -36,6 +37,7 @@ import java.io.OutputStream;
 
 @RestController
 @RequestMapping("/chat")
+@Validated
 public class ChatController extends ABaseController {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
@@ -100,7 +102,7 @@ public class ChatController extends ABaseController {
     @GlobalInterceptor
     public ResponseVO sendMessage(HttpServletRequest request,
                                   @NotEmpty String contactId,
-                                  @NotEmpty @Size(max = 500) String messageContent,
+                                  @NotEmpty @LengthLimit(maxLength = 5000) String messageContent,
                                   @NotNull Integer messageType,
                                   Long fileSize,
                                   String fileName,
