@@ -10,9 +10,12 @@ import org.apache.commons.lang3.StringUtils;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 
 public class StringTools {
+
+    private static final Pattern MOBILE_PATTERN = Pattern.compile("\\d{11}");
 
     public static void checkParam(Object param) {
         try {
@@ -129,6 +132,20 @@ public class StringTools {
 
     public static final String getChatSessionId4Group(String groupId) {
         return encodeByMD5(groupId);
+    }
+
+    /**
+     * 手机号脱敏：将中国大陆11位手机号中间四位替换为星号。
+     * null、非11位或含非数字的输入原样返回。
+     *
+     * @param mobile 待脱敏手机号
+     * @return 脱敏后的手机号
+     */
+    public static String maskMobile(String mobile) {
+        if (mobile == null || !MOBILE_PATTERN.matcher(mobile).matches()) {
+            return mobile;
+        }
+        return mobile.substring(0, 3) + "****" + mobile.substring(7);
     }
 }
 
