@@ -87,6 +87,11 @@ public class UserInfo implements Serializable {
      */
     private Long lastOffTime;
 
+    /**
+     * 最后活跃时间
+     */
+    private Date lastActiveTime;
+
     private Integer onlineType;
 
     public Integer getOnlineType() {
@@ -205,8 +210,16 @@ public class UserInfo implements Serializable {
         return this.lastOffTime;
     }
 
+    public Date getLastActiveTime() {
+        return lastActiveTime;
+    }
+
+    public void setLastActiveTime(Date lastActiveTime) {
+        this.lastActiveTime = lastActiveTime;
+    }
+
     @Override
     public String toString() {
-        return "用户ID:" + (userId == null ? "空" : userId) + "，邮箱:" + (email == null ? "空" : email) + "，昵称:" + (nickName == null ? "空" : nickName) + "，0:直接加入 1:同意后加好友:" + (joinType == null ? "空" : joinType) + "，0:女 1:男:" + (sex == null ? "空" : sex) + "，密码:" + (password == null ? "空" : password) + "，个性签名:" + (personalSignature == null ? "空" : personalSignature) + "，状态:" + (status == null ? "空" : status) + "，创建时间:" + (createTime == null ? "空" : DateUtil.format(createTime, DateTimePatternEnum.YYYY_MM_DD_HH_MM_SS.getPattern())) + "，最后登录时间:" + (lastLoginTime == null ? "空" : lastLoginTime) + "，省份:" + (areaName == null ? "空" : areaName) + "，城市:" + (areaCode == null ? "空" : areaCode) + "，最后离开时间:" + (lastOffTime == null ? "空" : lastOffTime);
+        return "用户ID:" + (userId == null ? "空" : userId) + "，邮箱:" + (email == null ? "空" : email) + "，昵称:" + (nickName == null ? "空" : nickName) + "，0:直接加入 1:同意后加好友:" + (joinType == null ? "空" : joinType) + "，0:女 1:男:" + (sex == null ? "空" : sex) + "，密码:" + (password == null ? "空" : password) + "，个性签名:" + (personalSignature == null ? "空" : personalSignature) + "，状态:" + (status == null ? "空" : status) + "，创建时间:" + (createTime == null ? "空" : DateUtil.format(createTime, DateTimePatternEnum.YYYY_MM_DD_HH_MM_SS.getPattern())) + "，最后登录时间:" + (lastLoginTime == null ? "空" : lastLoginTime) + "，省份:" + (areaName == null ? "空" : areaName) + "，城市:" + (areaCode == null ? "空" : areaCode) + "，最后离开时间:" + (lastOffTime == null ? "空" : lastOffTime) + "，最后活跃时间:" + (lastActiveTime == null ? "空" : lastActiveTime);
     }
 }

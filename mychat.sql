@@ -150,6 +150,7 @@ CREATE TABLE `user_info`  (
   `area_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '地区',
   `area_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '地区编号',
   `last_off_time` bigint(13) NULL DEFAULT NULL COMMENT '最后离开时间',
+  `last_active_time` datetime NULL DEFAULT NULL COMMENT '最后活跃时间',
   PRIMARY KEY (`user_id`) USING BTREE,
   UNIQUE INDEX `idx_key_email`(`email`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4  COMMENT = '用户信息';

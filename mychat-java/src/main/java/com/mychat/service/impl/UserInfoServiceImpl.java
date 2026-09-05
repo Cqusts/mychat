@@ -266,6 +266,9 @@ public class UserInfoServiceImpl implements UserInfoService {
         tokenUserInfoDto.setToken(token);
         redisComponet.saveTokenUserInfoDto(tokenUserInfoDto);
 
+        //登录成功，更新最后活跃时间
+        userInfoMapper.updateLastActiveTime(userInfo.getUserId());
+
         UserInfoVO userInfoVO = CopyTools.copy(userInfo, UserInfoVO.class);
         userInfoVO.setToken(tokenUserInfoDto.getToken());
         userInfoVO.setAdmin(tokenUserInfoDto.getAdmin());
