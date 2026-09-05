@@ -9,6 +9,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import jakarta.validation.constraints.NotEmpty;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Date;
 
 
@@ -71,6 +72,11 @@ public class UserInfo implements Serializable {
      * 最后登录时间
      */
     private Date lastLoginTime;
+
+    /**
+     * 最近活跃时间（仅登录时更新）
+     */
+    private LocalDateTime lastActiveTime;
 
     /**
      * 省份
@@ -179,6 +185,14 @@ public class UserInfo implements Serializable {
 
     public void setLastLoginTime(Date lastLoginTime) {
         this.lastLoginTime = lastLoginTime;
+    }
+
+    public LocalDateTime getLastActiveTime() {
+        return lastActiveTime;
+    }
+
+    public void setLastActiveTime(LocalDateTime lastActiveTime) {
+        this.lastActiveTime = lastActiveTime;
     }
 
     public void setAreaName(String areaName) {

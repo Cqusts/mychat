@@ -2,6 +2,8 @@ package com.mychat.mappers;
 
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
+
 /**
  *  数据库操作接口
  * 这是一个泛型接口，继承自BaseMapper，提供了针对用户信息的数据库操作方法
@@ -49,6 +51,12 @@ public interface UserInfoMapper<T,P> extends BaseMapper<T,P> {
 	 * 根据Email获取对象
 	 */
 	 T selectByEmail(@Param("email") String email);
+
+
+	/**
+	 * 更新最近活跃时间
+	 */
+	 Integer updateLastActiveTime(@Param("userId") String userId, @Param("lastActiveTime") LocalDateTime lastActiveTime);
 
 
 }
