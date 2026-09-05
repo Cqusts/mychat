@@ -31,6 +31,8 @@
         <result column="area_code" property="areaCode"/>
         <!--最后离开时间-->
         <result column="last_off_time" property="lastOffTime"/>
+        <!--最后活跃时间-->
+        <result column="last_active_time" property="lastActiveTime"/>
     </resultMap>
 
 
@@ -39,7 +41,7 @@
         user_id
         ,email,nick_name,join_type,
 		 sex,password,personal_signature,status,create_time,
-		 last_login_time,area_name,area_code,last_off_time
+		 last_login_time,area_name,area_code,last_off_time,last_active_time
     </sql>
 
     <sql id="base_condition_filed">
@@ -181,6 +183,9 @@
             <if test="bean.lastOffTime != null">
                 last_off_time,
             </if>
+            <if test="bean.lastActiveTime != null">
+                last_active_time,
+            </if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="bean.userId!=null">
@@ -221,6 +226,9 @@
             </if>
             <if test="bean.lastOffTime!=null">
                 #{bean.lastOffTime},
+            </if>
+            <if test="bean.lastActiveTime!=null">
+                #{bean.lastActiveTime},
             </if>
         </trim>
     </insert>
@@ -535,6 +543,11 @@
             </if>
         </set>
         where user_id=#{userId}
+    </update>
+
+    <!-- 更新最后活跃时间(ms) -->
+    <update id="updateLastActiveTime">
+        UPDATE user_info SET last_active_time = #{time} WHERE user_id = #{userId}
     </update>
 
     <!-- 根据UserId删除-->

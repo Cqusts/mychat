@@ -34,6 +34,12 @@ public interface UserInfoMapper<T,P> extends BaseMapper<T,P> {
 
 
 	/**
+	 * 更新最后活跃时间(ms)
+	 */
+	 Integer updateLastActiveTime(@Param("userId") String userId, @Param("time") Long time);
+
+
+	/**
 	 * 根据Email更新
 	 */
 	 Integer updateByEmail(@Param("bean") T t,@Param("email") String email);
