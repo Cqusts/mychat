@@ -18,11 +18,22 @@ public class ToolBudget {
 
     private static final int MAX_SAME_CALL = 3;
 
+    /**
+     * 连续多少次调用没改动任何文件就判定失速。
+     *
+     * 20 是照着实测数据定的：成功的任务通常20~40次调用就收工，
+     * 而定位阶段（findFiles + 几次outline + readFiles）撑死十来次。
+     * 到第20次还一个字没改，基本可以断定它找不到北了
+     */
+    private static final int DEFAULT_STALL_LIMIT = 20;
+
     private final AiTaskControl control;
 
     private final String taskId;
 
     private final int maxCalls;
+
+    private final int stallLimit;
 
     private final long deadline;
 
@@ -31,15 +42,34 @@ public class ToolBudget {
     private int calls;
 
     /**
+     * 距离上一次真正改动文件，已经空转了多少次调用
+     */
+    private int callsSinceProgress;
+
+    /**
      * 被熔断的原因，null表示这一轮是正常跑完的。引擎据此决定怎么跟用户交代
      */
     private String stopReason;
 
     public ToolBudget(AiTaskControl control, String taskId, int maxCalls, int deadlineMinutes) {
+        this(control, taskId, maxCalls, deadlineMinutes, DEFAULT_STALL_LIMIT);
+    }
+
+    public ToolBudget(AiTaskControl control, String taskId, int maxCalls,
+                      int deadlineMinutes, int stallLimit) {
         this.control = control;
         this.taskId = taskId;
         this.maxCalls = maxCalls;
         this.deadline = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(deadlineMinutes);
+        this.stallLimit = stallLimit;
+    }
+
+    /**
+     * 有文件真的被改动了，失速计数清零。
+     * 只有写文件才算数——搜索和读文件再多也不代表在推进
+     */
+    public synchronized void recordProgress() {
+        callsSinceProgress = 0;
     }
 
     /**
@@ -65,6 +95,16 @@ public class ToolBudget {
                     "本轮工具调用已达上限（" + maxCalls + "次）。请立刻停止调用工具，"
                             + "用中文说明你已经完成了什么、还差什么，然后结束。");
         }
+        //失速检测：一直在搜、在读，但一个文件都没动，说明已经迷路了。
+        //实测失败任务占55%且全都烧满预算，而按平方增长的成本关系，
+        //这部分支出占了大头——早点收手比让它耗到上限便宜得多
+        callsSinceProgress++;
+        if (callsSinceProgress > stallLimit) {
+            return stop("连续多次调用无实际进展",
+                    "你已经连续" + stallLimit + "次调用工具但一个文件都没改动，说明当前思路走不通。"
+                            + "请停止继续搜索，用中文说明你想改什么、卡在哪里、需要什么信息，然后结束。");
+        }
+
         int same = repeats.merge(signature, 1, Integer::sum);
         if (same > MAX_SAME_CALL) {
             //同样的参数调同样的工具，结果一定也一样，再试多少次都不会变
@@ -92,5 +132,9 @@ public class ToolBudget {
 
     public int getCalls() {
         return calls;
+    }
+
+    public int getCallsSinceProgress() {
+        return callsSinceProgress;
     }
 }

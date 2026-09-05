@@ -273,6 +273,7 @@ public class CoderTools {
             workspace.writeFile(path, result.content);
             changedFileCount++;
             touchedFiles.add(path);
+            budget.recordProgress();
             return "已修改 " + path;
         } catch (Exception e) {
             logger.error("replaceInFile执行失败, path:{}", path, e);
@@ -448,6 +449,7 @@ public class CoderTools {
                 changedFileCount++;
                 touchedFiles.add(entry.getKey());
             }
+            budget.recordProgress();
             StringBuilder sb = new StringBuilder("已提交 " + edits.size() + " 处改动，涉及 "
                     + pending.size() + " 个文件：\n");
             for (String path : pending.keySet()) {
@@ -521,6 +523,7 @@ public class CoderTools {
             workspace.writeFile(path, content == null ? "" : content);
             changedFileCount++;
             touchedFiles.add(path);
+            budget.recordProgress();
             return "已创建 " + path;
         } catch (Exception e) {
             logger.error("createFile执行失败, path:{}", path, e);

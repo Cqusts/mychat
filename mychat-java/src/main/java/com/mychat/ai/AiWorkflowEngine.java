@@ -108,6 +108,9 @@ public class AiWorkflowEngine {
     @Value("${ai.coder.stage-deadline-minutes:20}")
     private Integer stageDeadlineMinutes;
 
+    @Value("${ai.coder.stall-limit:20}")
+    private Integer stallLimit;
+
     @Value("${ai.workflow.enabled:true}")
     private Boolean workflowEnabled;
 
@@ -367,8 +370,8 @@ public class AiWorkflowEngine {
      * 每个阶段一套独立预算：这一轮调爆了不影响下一轮
      */
     private CoderTools newCoderTools(AiWorkflowTaskDto task) {
-        return new CoderTools(coderWorkspace, null,
-                new ToolBudget(aiTaskControl, task.getTaskId(), maxToolCalls, stageDeadlineMinutes));
+        return new CoderTools(coderWorkspace, null, new ToolBudget(aiTaskControl,
+                task.getTaskId(), maxToolCalls, stageDeadlineMinutes, stallLimit));
     }
 
     private boolean cancelled(AiWorkflowTaskDto task) {
