@@ -31,6 +31,8 @@
         <result column="area_code" property="areaCode"/>
         <!--最后离开时间-->
         <result column="last_off_time" property="lastOffTime"/>
+        <!--最后活跃时间-->
+        <result column="last_active_time" property="lastActiveTime"/>
     </resultMap>
 
 
@@ -39,7 +41,7 @@
         user_id
         ,email,nick_name,join_type,
 		 sex,password,personal_signature,status,create_time,
-		 last_login_time,area_name,area_code,last_off_time
+		 last_login_time,last_active_time,area_name,area_code,last_off_time
     </sql>
 
     <sql id="base_condition_filed">
@@ -535,6 +537,11 @@
             </if>
         </set>
         where user_id=#{userId}
+    </update>
+
+    <!-- 更新最后活跃时间-->
+    <update id="updateLastActiveTime">
+        update user_info set last_active_time = now() where user_id = #{userId}
     </update>
 
     <!-- 根据UserId删除-->

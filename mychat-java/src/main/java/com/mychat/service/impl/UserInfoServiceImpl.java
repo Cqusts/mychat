@@ -25,6 +25,8 @@ import com.mychat.utils.CopyTools;
 import com.mychat.utils.StringTools;
 import com.mychat.websocket.MessageHandler;
 import org.apache.commons.lang3.ArrayUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,6 +44,8 @@ import java.util.stream.Collectors;
  */
 @Service("userInfoService")
 public class UserInfoServiceImpl implements UserInfoService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserInfoServiceImpl.class);
 
     @Resource
     private UserInfoMapper<UserInfo, UserInfoQuery> userInfoMapper;
@@ -234,6 +238,7 @@ public class UserInfoServiceImpl implements UserInfoService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public UserInfoVO login(String email, String password) {
         UserInfo userInfo = this.userInfoMapper.selectByEmail(email);
         if (null == userInfo || !userInfo.getPassword().equals(password)) {
@@ -269,6 +274,14 @@ public class UserInfoServiceImpl implements UserInfoService {
         UserInfoVO userInfoVO = CopyTools.copy(userInfo, UserInfoVO.class);
         userInfoVO.setToken(tokenUserInfoDto.getToken());
         userInfoVO.setAdmin(tokenUserInfoDto.getAdmin());
+
+        // 更新最后活跃时间，独立事务提交，失败仅告警不影响登录
+        try {
+            userInfoMapper.updateLastActiveTime(userInfo.getUserId());
+        } catch (Exception e) {
+            logger.error("更新用户最后活跃时间失败,userId:{}", userInfo.getUserId(), e);
+        }
+
         return userInfoVO;
     }
 

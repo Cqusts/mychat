@@ -1,6 +1,8 @@
 package com.mychat.mappers;
 
 import org.apache.ibatis.annotations.Param;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  *  数据库操作接口
@@ -49,6 +51,13 @@ public interface UserInfoMapper<T,P> extends BaseMapper<T,P> {
 	 * 根据Email获取对象
 	 */
 	 T selectByEmail(@Param("email") String email);
+
+
+	/**
+	 * 更新最后活跃时间（独立事务提交，失败不影响主流程）
+	 */
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	 Integer updateLastActiveTime(@Param("userId") String userId);
 
 
 }
