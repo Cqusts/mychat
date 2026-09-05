@@ -11,6 +11,11 @@ public enum AiWorkflowStageEnum {
     REQUIREMENT("需求分析"),
     DESIGN("方案设计"),
     REVIEW("方案评审"),
+    /**
+     * TDD 开启时插在编码之前：按验收标准先写测试，且必须先跑出失败。
+     * 能一次跑通的测试说明它根本没测到新行为，是假的
+     */
+    TEST_FIRST("测试先行"),
     CODING("编码实现"),
     TESTING("测试验证"),
     DONE("已完成"),

@@ -291,8 +291,12 @@ public class CoderWorkspace {
     /**
      * 提交并推送。只在编译通过后由引擎调用，模型没有触发推送的工具
      */
-    public void commitAndPush(String branch, String message) throws Exception {
-        checkBranchName(branch);
+    /**
+     * 只提交不推送。TDD 里测试要先落一个本地提交，
+     * 否则编码阶段的 hasChanges 会把这些测试文件当成程序员的产出，
+     * "一个文件都没动"这个判断就废了
+     */
+    public void commitLocal(String message) throws Exception {
         File root = rootFile();
         ExecResult add = exec(root, Arrays.asList(gitCommand, "add", "-A"));
         if (!add.success()) {
@@ -302,6 +306,12 @@ public class CoderWorkspace {
         if (!commit.success()) {
             throw new IllegalStateException("git commit 失败：" + commit.output);
         }
+    }
+
+    public void commitAndPush(String branch, String message) throws Exception {
+        checkBranchName(branch);
+        commitLocal(message);
+        File root = rootFile();
         ExecResult push = exec(root, Arrays.asList(gitCommand, "push", "-u", "origin", branch));
         if (!push.success()) {
             throw new IllegalStateException("git push 失败：" + push.output);

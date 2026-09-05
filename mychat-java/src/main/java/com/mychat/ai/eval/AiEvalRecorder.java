@@ -66,6 +66,8 @@ public class AiEvalRecorder {
             record.setFirstCompilePass(task.getFirstCompilePass());
             record.setCodePushed(task.getCodePushed());
             record.setTestsPassed(task.getTestsPassed());
+            record.setRedGatePassed(task.getRedGatePassed());
+            record.setAcceptancePassed(task.getAcceptancePassed());
             record.setFailReason(task.getFailReason());
             record.setCreateTime(task.getCreateTime());
             long end = task.getEndTime() == null ? System.currentTimeMillis() : task.getEndTime();
@@ -112,6 +114,8 @@ public class AiEvalRecorder {
         int firstPass = 0;
         int pushed = 0;
         int testsOk = 0;
+        int redGate = 0;
+        int accepted = 0;
         long retrySum = 0;
         List<Long> costs = new ArrayList<>(records.size());
         Map<String, Integer> failReasons = new LinkedHashMap<>();
@@ -139,6 +143,12 @@ public class AiEvalRecorder {
             if (Boolean.TRUE.equals(record.getTestsPassed())) {
                 testsOk++;
             }
+            if (Boolean.TRUE.equals(record.getRedGatePassed())) {
+                redGate++;
+            }
+            if (record.isAccepted()) {
+                accepted++;
+            }
             retrySum += record.getRetryCount() == null ? 0 : record.getRetryCount();
             costs.add(record.getCostMs() == null ? 0 : record.getCostMs());
 
@@ -157,6 +167,11 @@ public class AiEvalRecorder {
         report.setFirstCompilePassRate(percent(firstPass, enteredCoding));
         report.setCodePushed(pushed);
         report.setTestsPassed(testsOk);
+        report.setRedGatePassed(redGate);
+        report.setAccepted(accepted);
+        //分母是全部任务，不是过了红灯的那些：
+        //红灯就没过说明测试都没写对，那也是没达成，不能从分母里摘出去
+        report.setAcceptanceRate(percent(accepted, records.size()));
 
         Collections.sort(costs);
         report.setMedianCostMs(quantile(costs, 0.5));
@@ -239,6 +254,11 @@ public class AiEvalRecorder {
         if (reason.startsWith("方案评审") || reason.equals("方案未通过评审")
                 || reason.contains("停在方案评审")) {
             return "方案评审";
+        }
+        //测试先行的失败要归到自己头上。放在编码/测试验证之前判：
+        //"测试先行阶段调用失败"以"测试"开头，会被后面那条错认成测试验证
+        if (reason.contains("测试先行") || reason.startsWith("红灯门禁")) {
+            return "测试先行";
         }
         if (reason.startsWith("编码") || reason.startsWith("编译")
                 || reason.startsWith("推送") || reason.startsWith("准备代码工作区")

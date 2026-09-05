@@ -122,6 +122,11 @@ public class AiWorkflowEngine {
      */
     private static final int MAX_ERROR_EXCERPT = 800;
 
+    /**
+     * 测试代码所在目录。TDD 模式下编码阶段把它整个设为只读
+     */
+    private static final String TEST_ROOT = "src/test/java/";
+
     @Value("${ai.coder.max-tool-calls:60}")
     private Integer maxToolCalls;
 
@@ -139,6 +144,17 @@ public class AiWorkflowEngine {
 
     @Value("${ai.workflow.plan-tool-calls:15}")
     private Integer planToolCalls;
+
+    /**
+     * 测试先行。单独开关是为了能做A/B：它大概率会拉低"完成率"
+     * （多一道关，原来编译过就算完的现在过不了），换来的是
+     * "需求真的实现了"这个能证明的硬指标
+     */
+    @Value("${ai.workflow.tdd.enabled:false}")
+    private Boolean tddEnabled;
+
+    @Value("${ai.workflow.tdd.max-red-retry:1}")
+    private Integer maxRedRetry;
 
     @Value("${ai.workflow.enabled:true}")
     private Boolean workflowEnabled;
@@ -382,6 +398,9 @@ public class AiWorkflowEngine {
                 case REVIEW:
                     task = runReview(task);
                     break;
+                case TEST_FIRST:
+                    task = runTestFirst(task);
+                    break;
                 case CODING:
                     task = runCoding(task);
                     break;
@@ -581,7 +600,10 @@ public class AiWorkflowEngine {
                 postSummary(task, true);
                 return null;
             }
-            task.setStage(AiWorkflowStageEnum.CODING.name());
+            //TDD 开启时先写测试再写代码；关掉就还是直接进编码，方便做A/B对照
+            task.setStage(tddEnabled && coderWorkspace.isEnabled()
+                    ? AiWorkflowStageEnum.TEST_FIRST.name()
+                    : AiWorkflowStageEnum.CODING.name());
             saveTask(task);
             return task;
         }
@@ -598,6 +620,184 @@ public class AiWorkflowEngine {
         saveTask(task);
         logger.info("方案被打回，第{}次返工, taskId:{}", task.getRetryCount(), task.getTaskId());
         return task;
+    }
+
+    /**
+     * 测试先行：按验收标准写测试，并且必须先跑出失败。
+     *
+     * 为什么要有 red 门禁：模型很容易写出一个恒真的测试来"完成任务"
+     * （断言 1==1、或者只测一个和需求无关的既有行为）。
+     * 而"新写的测试必须先失败"这件事是机器可验证的——
+     * 能一次跑通，就说明它压根没测到新行为。
+     *
+     * 前提是基线测试套件本身是绿的：这里用整套测试的成败来判定红绿，
+     * 如果基线就有失败用例，红灯会被误判成"测试写对了"
+     */
+    private AiWorkflowTaskDto runTestFirst(AiWorkflowTaskDto task) {
+        AiAgentDefinition agent = aiAgentRegistry.getById(testingAgentId);
+        if (agent == null) {
+            logger.warn("没有配置测试工程师，跳过测试先行, taskId:{}", task.getTaskId());
+            task.setStage(AiWorkflowStageEnum.CODING.name());
+            saveTask(task);
+            return task;
+        }
+
+        String toolchainProblem = coderWorkspace.checkToolchain();
+        if (toolchainProblem != null) {
+            task.setStage(AiWorkflowStageEnum.FAILED.name());
+            saveTask(task);
+            postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
+                    atRequester(task) + "方案通过了，但测试环节起不来：" + toolchainProblem);
+            archive(task, "测试先行环境不可用");
+            return null;
+        }
+
+        String branch = "ai/task-" + task.getTaskId().substring(0, 8);
+        try {
+            coderWorkspace.prepareBranch(branch);
+            task.setCodeBranch(branch);
+        } catch (Exception e) {
+            logger.error("准备代码工作区失败, taskId:{}", task.getTaskId(), e);
+            return failTask(task, "测试先行准备代码工作区失败：" + e.getMessage());
+        }
+
+        TokenUserInfoDto agentToken = tokenOf(testingAgentId);
+        postAgentMessage(agentToken, task.getGroupId(),
+                "按 TDD 来：我先按验收标准把测试写出来，跑一遍确认它现在是失败的，再让程序员去实现。");
+
+        String acceptanceText = renderAcceptance(task);
+        String systemPrompt = personaOf(agent)
+                + "\n你现在在一条需求流水线上工作，负责【测试先行】这一环，采用 TDD。"
+                + PROJECT_MAP
+                + "\n现在功能还没实现，你要先按验收标准把 JUnit 测试写出来，放在"
+                + " mychat-java/src/test/java/ 下对应的包里。"
+                + "\n关键要求：这些测试现在必须是失败的。如果你写出来的测试不改代码就能通过，"
+                + "说明它根本没测到新行为，那是假测试，会被判定不合格。"
+                + "\n所以：直接针对验收标准描述的新行为写断言，调用方案里规划的新接口和新字段——"
+                + "它们还不存在，编译不过或断言失败都是正常且预期的。"
+                + "\n只测这次需求的行为，不要给整个项目补测试；"
+                + "需要数据库、Redis或Spring容器的地方用Mockito打桩，"
+                + "不要写必须连真实MySQL/Redis才能跑的测试。"
+                + "\n写完用 applyEdits 一次性提交，不用自己跑测试，引擎会跑。"
+                + STAGE_RULES;
+
+        String userPrompt = "【原始需求】\n" + task.getRequirement() + "\n\n"
+                + "【技术方案】\n" + task.getTechPlan() + "\n\n"
+                + TechPlanParser.renderForCoder(task.getPlanChanges())
+                + "\n【验收标准，每一条都要有对应的测试】\n" + acceptanceText + "\n\n"
+                + "请写出这些测试。";
+
+        for (int round = 0; round <= maxRedRetry; round++) {
+            CoderTools tools = newCoderTools(task);
+            String output = callAgent(agent, task,
+                    round == 0 ? systemPrompt
+                            : systemPrompt + "\n上一版测试不改代码就能通过，说明没测到新行为。"
+                                    + "请重写：断言必须针对验收标准里的新行为。",
+                    userPrompt, tools, coderTimeoutSeconds);
+            if (cancelled(task)) {
+                abortByUser(task);
+                return null;
+            }
+            if (output == null) {
+                return failTask(task, "测试先行阶段调用失败");
+            }
+
+            boolean wroteSomething;
+            try {
+                wroteSomething = coderWorkspace.hasChanges();
+            } catch (Exception e) {
+                logger.error("检查测试改动失败, taskId:{}", task.getTaskId(), e);
+                wroteSomething = false;
+            }
+            if (!wroteSomething) {
+                logger.warn("测试先行没有产出任何文件, taskId:{}, 第{}轮", task.getTaskId(), round + 1);
+                continue;
+            }
+
+            //红灯校验：测试现在就该是失败的
+            boolean red;
+            try {
+                red = !coderWorkspace.runTests().success();
+            } catch (Exception e) {
+                logger.error("运行测试失败, taskId:{}", task.getTaskId(), e);
+                //跑不起来也算红：编译不过恰恰说明它调用了还不存在的接口
+                red = true;
+            }
+            if (red) {
+                task.setRedGatePassed(true);
+                task.setTestFiles(testFilesOf(tools.getTouchedFiles()));
+                //测试单独落一个本地提交：编码阶段靠 hasChanges 判断
+                //"程序员到底动没动文件"，未提交的测试会把这个判断污染成永远为真
+                try {
+                    coderWorkspace.commitLocal("test: 「" + task.getRequirement() + "」的验收测试(TDD先行)");
+                } catch (Exception e) {
+                    logger.error("提交测试失败, taskId:{}", task.getTaskId(), e);
+                    return failTask(task, "测试先行提交测试代码失败：" + e.getMessage());
+                }
+                task.setStage(AiWorkflowStageEnum.CODING.name());
+                saveTask(task);
+                postAgentMessage(agentToken, task.getGroupId(),
+                        "测试写好了，跑了一遍确认是失败的（红灯），符合预期——功能还没实现。"
+                                + "接下来交给程序员实现到测试变绿。");
+                return task;
+            }
+            logger.warn("测试不改代码就能通过，判定为假测试, taskId:{}, 第{}轮", task.getTaskId(), round + 1);
+        }
+
+        task.setRedGatePassed(false);
+        task.setStage(AiWorkflowStageEnum.FAILED.name());
+        saveTask(task);
+        postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
+                atRequester(task) + "测试先行这一步没过：写出来的测试不改代码就能通过，"
+                        + "说明它没有真正覆盖需求里的新行为。流程停在这里，没有改任何业务代码。");
+        archive(task, "红灯门禁未通过(测试未覆盖新行为)");
+        return null;
+    }
+
+    /**
+     * 从本轮动过的文件里挑出测试文件。模型偶尔会顺手改点别的，
+     * 只有 src/test 下的才算这次需求的验收标准
+     */
+    private List<String> testFilesOf(List<String> touched) {
+        List<String> tests = new ArrayList<>();
+        if (touched == null) {
+            return tests;
+        }
+        for (String path : touched) {
+            if (path != null && path.replace('\\', '/').contains(TEST_ROOT)) {
+                tests.add(path);
+            }
+        }
+        return tests;
+    }
+
+    /**
+     * 把测试先行阶段产出的测试文件列给程序员。
+     * 直接点名比让它自己去 findFiles 找便宜得多，也不会找错
+     */
+    private String renderTestFiles(AiWorkflowTaskDto task) {
+        List<String> tests = task.getTestFiles();
+        if (tests == null || tests.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("【这次需求的测试（只读，先把它们读完再动手）】\n");
+        for (String path : tests) {
+            sb.append("- ").append(path).append('\n');
+        }
+        return sb.append('\n').toString();
+    }
+
+    private String renderAcceptance(AiWorkflowTaskDto task) {
+        List<String> acceptance = task.getAcceptance();
+        if (acceptance == null || acceptance.isEmpty()) {
+            //方案没给出验收标准时退回用需求原文，总比没有强
+            return "（方案里没写验收标准，请自己从需求里提炼）\n" + task.getRequirement();
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String item : acceptance) {
+            sb.append("- ").append(item).append('\n');
+        }
+        return sb.toString();
     }
 
     /**
@@ -625,9 +825,14 @@ public class AiWorkflowEngine {
         }
 
         String branch = "ai/task-" + task.getTaskId().substring(0, 8);
+        boolean tdd = Boolean.TRUE.equals(task.getRedGatePassed());
 
         try {
-            coderWorkspace.prepareBranch(branch);
+            //TDD 模式下分支是测试先行阶段建的，测试就躺在工作区里还没提交，
+            //这里再 prepareBranch 一次会把它们全清掉，红灯白亮了
+            if (!tdd) {
+                coderWorkspace.prepareBranch(branch);
+            }
             //工作区准备好了才算真的进了编码阶段。
             //评测里 enteredCoding 是靠 codeBranch 判断的，提前赋值会把
             //"clone 都没拉下来"的任务也算进"编译一次通过率"的分母，把这个指标稀释掉
@@ -639,12 +844,17 @@ public class AiWorkflowEngine {
 
         TokenUserInfoDto agentToken = tokenOf(codingAgentId);
         CoderTools tools = newCoderTools(task);
+        if (tdd) {
+            tools.setProtectedPaths(List.of(TEST_ROOT));
+        }
         boolean hasPlanChanges = task.getPlanChanges() != null && !task.getPlanChanges().isEmpty();
 
         //这一步要读文件、改文件、跑maven，动辄好几分钟，
         //群里不说一声的话看起来就像流程卡死了
         postAgentMessage(agentToken, task.getGroupId(),
-                "方案通过了，我开始改代码。工作分支：" + branch + "，写完会编译验证再推。");
+                tdd ? "测试已经写好并且是红的，我开始实现。工作分支：" + branch
+                        + "，目标是让这些测试变绿——我不会去动测试本身。"
+                        : "方案通过了，我开始改代码。工作分支：" + branch + "，写完会编译验证再推。");
 
         String systemPrompt = personaOf(agent)
                 + "\n你现在在一条需求流水线上工作，负责【编码实现】这一环，要真的改代码。"
@@ -673,6 +883,14 @@ public class AiWorkflowEngine {
                 + "你只有60次工具调用的预算，别把它耗在漫无目的的搜索上——"
                 + "findFiles 一次就该让你知道去哪，如果两次都没定位到，"
                 + "直接说明卡在哪里并结束，不要硬试。"
+                + (tdd ? "\n这次是 TDD：测试工程师已经按验收标准写好了测试，现在是红的（失败的），"
+                        + "你的任务就是让它们变绿。测试文件是这次需求的准确定义，"
+                        + "先 readFiles 把它们读一遍，看清楚它期望什么类、什么方法、什么返回值，再照着实现。"
+                        + "\n测试目录是只读的，你改不了——把测试删掉或者改断言来凑绿灯这条路是堵死的，"
+                        + "只能改业务代码。"
+                        + "\n注意 compile 只编主代码、不编测试，所以它通过不代表你做完了；"
+                        + "改完记得调 runTests 看测试是不是真的绿了。"
+                        : "")
                 + "全部改完并编译通过后，用一段话说明你改了哪些文件、每个文件做了什么。"
                 + STAGE_RULES;
 
@@ -681,7 +899,8 @@ public class AiWorkflowEngine {
                 + "【评审通过的技术方案】\n" + task.getTechPlan() + "\n\n"
                 + TechPlanParser.renderForCoder(task.getPlanChanges())
                 + "\n【评审意见，实现时要一并满足】\n" + task.getReviewResult() + "\n\n"
-                + "请按方案改代码。";
+                + renderTestFiles(task)
+                + (tdd ? "请实现功能让这些测试通过。" : "请按方案改代码。");
 
         String output = callAgent(agent, task, systemPrompt, userPrompt, tools, coderTimeoutSeconds);
         //停止之后绝不能继续走到提交推送，所以这里要在编译和push之前拦一道
@@ -771,12 +990,112 @@ public class AiWorkflowEngine {
     }
 
     /**
+     * 绿灯门禁：跑测试先行阶段写下的那套测试，必须全绿。
+     *
+     * 红灯证明测试真的测到了新行为，绿灯证明新行为真的实现了，
+     * 两个门加起来才谈得上"需求达成"——只有编译通过是证明不了这件事的。
+     * 不绿就把失败原文回传给程序员再修几轮，测试目录全程只读。
+     *
+     * 门禁没过不判整个任务失败：代码已经编译通过并推送了，
+     * 这两件事本来就是分开的指标——任务完成率看的是编译推送，
+     * 需求达成率看的是这道门
+     */
+    private AiWorkflowTaskDto runGreenGate(AiWorkflowTaskDto task) {
+        AiAgentDefinition agent = aiAgentRegistry.getById(codingAgentId);
+        TokenUserInfoDto agentToken = tokenOf(testingAgentId);
+        postAgentMessage(agentToken, task.getGroupId(),
+                "代码实现完了，现在跑一遍之前写的那套测试，看能不能从红转绿。");
+
+        String lastFailure = null;
+        for (int round = 0; round <= maxFixRounds; round++) {
+            if (cancelled(task)) {
+                abortByUser(task);
+                return null;
+            }
+            CoderWorkspace.ExecResult result;
+            try {
+                result = coderWorkspace.runTests();
+            } catch (Exception e) {
+                logger.error("绿灯门禁运行测试失败, taskId:{}", task.getTaskId(), e);
+                lastFailure = "测试命令没能执行起来：" + e.getMessage();
+                break;
+            }
+            if (result.success()) {
+                task.setTestsPassed(true);
+                task.setAcceptancePassed(true);
+                //修了几轮的话改动还没推，这里补一次
+                pushIfDirty(task, "fix: 让「" + task.getRequirement() + "」的验收测试通过");
+                postAgentMessage(agentToken, task.getGroupId(),
+                        round == 0 ? "测试全绿，验收标准都过了。"
+                                : "第" + round + "轮修完之后测试全绿，验收标准都过了。");
+                task.setStage(AiWorkflowStageEnum.DONE.name());
+                saveTask(task);
+                postSummary(task, true);
+                return null;
+            }
+
+            lastFailure = result.output;
+            logger.warn("绿灯门禁未通过, taskId:{}, 第{}轮, 输出:\n{}",
+                    task.getTaskId(), round + 1, result.output);
+            if (round == maxFixRounds) {
+                break;
+            }
+
+            postAgentMessage(agentToken, task.getGroupId(),
+                    "测试还没全绿，把失败原文回传给程序员再修一轮。");
+            CoderTools tools = newCoderTools(task);
+            tools.setProtectedPaths(List.of(TEST_ROOT));
+            callAgent(agent, task, personaOf(agent)
+                    + "\n你在修自己刚实现的功能：验收测试没通过。"
+                    + "测试是这次需求的准确定义，它期望什么你就实现什么。"
+                    + "\n测试目录只读，你改不了测试——只能改业务代码。"
+                    + "只改导致失败的地方，不要顺手改别的。"
+                    + STAGE_RULES,
+                    "验收测试失败，报错如下：\n" + result.output
+                            + "\n\n请定位并修好，让这些测试通过。",
+                    tools, coderTimeoutSeconds);
+        }
+
+        //没转绿：代码留在分支上，但如实说明需求没达成
+        task.setTestsPassed(false);
+        task.setAcceptancePassed(false);
+        pushIfDirty(task, "wip: 「" + task.getRequirement() + "」验收测试仍未通过");
+        task.setStage(AiWorkflowStageEnum.DONE.name());
+        saveTask(task);
+        postAgentMessage(tokenOf(requirementAgentId), task.getGroupId(),
+                atRequester(task) + "代码写完也编译通过了，已经推到 " + task.getCodeBranch()
+                        + "，但验收测试没能全部通过，需求没算真正达成，合并前请人工看一眼。\n失败节选：\n"
+                        + tailOf(lastFailure, MAX_ERROR_EXCERPT));
+        postSummary(task, true);
+        return null;
+    }
+
+    /**
+     * 工作区还有未提交改动就推一次。推送失败只记日志：
+     * 到这一步代码本身已经通过了该过的门，不该因为网络问题把任务判死
+     */
+    private void pushIfDirty(AiWorkflowTaskDto task, String message) {
+        try {
+            if (coderWorkspace.hasChanges()) {
+                coderWorkspace.commitAndPush(task.getCodeBranch(),
+                        message + "\n\n由MyChat需求流水线自动生成");
+            }
+        } catch (Exception e) {
+            logger.error("推送失败, taskId:{}, branch:{}", task.getTaskId(), task.getCodeBranch(), e);
+        }
+    }
+
+    /**
      * 测试阶段：让测试工程师看实际代码改动、补JUnit用例并真跑起来。
      *
      * 这一步失败不算整个任务失败——代码已经编译通过并推送了，
      * 测试没写好只是少了一层保障，不该把前面的成果一起判死
      */
     private AiWorkflowTaskDto runTesting(AiWorkflowTaskDto task) {
+        if (Boolean.TRUE.equals(task.getRedGatePassed())) {
+            //TDD 模式下测试是编码之前就写好的，这一环不再补测试，只做绿灯门禁
+            return runGreenGate(task);
+        }
         AiAgentDefinition agent = aiAgentRegistry.getById(testingAgentId);
         CoderTools tools = newCoderTools(task);
 
@@ -993,10 +1312,12 @@ public class AiWorkflowEngine {
             sb.append("。");
             if (Boolean.TRUE.equals(task.getCodePushed())) {
                 sb.append("代码已编译通过并推送到分支 ").append(task.getCodeBranch()).append("。");
+                boolean tdd = Boolean.TRUE.equals(task.getRedGatePassed());
                 if (Boolean.TRUE.equals(task.getTestsPassed())) {
-                    sb.append("单元测试已补充并全部通过。");
+                    sb.append(tdd ? "验收测试先红后绿，需求已达成。" : "单元测试已补充并全部通过。");
                 } else if (task.getTestsPassed() != null) {
-                    sb.append("但单元测试没能全部跑通，合并前请自己确认一下。");
+                    sb.append(tdd ? "但验收测试没能全部转绿，需求没算真正达成，合并前请人工确认。"
+                            : "但单元测试没能全部跑通，合并前请自己确认一下。");
                 }
                 if (!StringTools.isEmpty(task.getCodeDiffStat())) {
                     sb.append("\n改动概览：\n").append(task.getCodeDiffStat());

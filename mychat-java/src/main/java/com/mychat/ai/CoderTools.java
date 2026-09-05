@@ -97,6 +97,13 @@ public class CoderTools {
      */
     private final Set<String> touchedFiles = new LinkedHashSet<>();
 
+    /**
+     * 只读路径片段。TDD 模式下测试文件就是需求本身的形式化描述，
+     * 允许程序员改测试的话，最省事的"让测试变绿"办法就是把断言删掉，
+     * 红绿门禁也就没有意义了。所以这里从工具层直接封死，不靠提示词自觉
+     */
+    private List<String> protectedSegments = new ArrayList<>();
+
     public CoderTools(CoderWorkspace workspace, AiStreamCallback callback) {
         this(workspace, callback, new ToolBudget(null, null, DEFAULT_MAX_TOOL_CALLS, DEFAULT_DEADLINE_MINUTES));
     }
@@ -127,6 +134,32 @@ public class CoderTools {
      */
     public void bindCallback(AiStreamCallback callback) {
         this.callback = callback;
+    }
+
+    /**
+     * @param protectedSegments 路径片段，命中即只读。传目录片段而不是前缀，
+     *                          是因为仓库是多模块的，测试目录真实路径是
+     *                          mychat-java/src/test/java/…，写死前缀会漏
+     */
+    public void setProtectedPaths(List<String> protectedSegments) {
+        this.protectedSegments = protectedSegments == null ? new ArrayList<>() : protectedSegments;
+    }
+
+    /**
+     * @return 该路径被保护时返回给模型的说明，可写则返回null
+     */
+    private String protectedBlock(String path) {
+        if (path == null || protectedSegments.isEmpty()) {
+            return null;
+        }
+        String normalized = path.replace('\\', '/');
+        for (String segment : protectedSegments) {
+            if (normalized.contains(segment)) {
+                return "不能改 " + path + "：测试文件是这次需求的验收标准，本轮只读。"
+                        + "请改业务代码让测试通过，不要改测试本身。";
+            }
+        }
+        return null;
     }
 
     public int getChangedFileCount() {
@@ -257,6 +290,10 @@ public class CoderTools {
         String blocked = guard("replaceInFile|" + path + "|" + oldText);
         if (blocked != null) {
             return blocked;
+        }
+        String readOnly = protectedBlock(path);
+        if (readOnly != null) {
+            return readOnly;
         }
         notify("正在修改 " + shortName(path) + "…");
         try {
@@ -397,6 +434,10 @@ public class CoderTools {
                 if (edit == null || StringTools.isEmpty(edit.getPath())) {
                     return "有一项没填 path。";
                 }
+                String readOnly = protectedBlock(edit.getPath());
+                if (readOnly != null) {
+                    return readOnly;
+                }
                 byFile.computeIfAbsent(edit.getPath(), key -> new ArrayList<>()).add(edit);
             }
 
@@ -514,6 +555,10 @@ public class CoderTools {
         String blocked = guard("createFile|" + path);
         if (blocked != null) {
             return blocked;
+        }
+        String readOnly = protectedBlock(path);
+        if (readOnly != null) {
+            return readOnly;
         }
         notify("正在创建 " + shortName(path) + "…");
         try {

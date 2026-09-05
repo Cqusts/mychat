@@ -38,6 +38,13 @@ public class AiEvalTextReport {
                 report.getFirstCompilePassRate(), report.getEnteredCoding()));
         sb.append(String.format("成功推送分支    %d 个%n", report.getCodePushed()));
         sb.append(String.format("单测全部通过    %d 个%n", report.getTestsPassed()));
+        if (report.getRedGatePassed() > 0 || report.getAccepted() > 0) {
+            //只在开了TDD时才印，关着的时候这两行恒为0，印出来只会让人误以为退化了
+            sb.append(String.format("红灯门禁通过    %d 个  (测试确实先失败了，不是假测试)%n",
+                    report.getRedGatePassed()));
+            sb.append(String.format("需求达成率      %.1f%%  (%d/%d 红绿两道门都过)%n",
+                    report.getAcceptanceRate(), report.getAccepted(), report.getTotal()));
+        }
         sb.append(String.format("单需求耗时      中位 %s / P90 %s%n",
                 duration(report.getMedianCostMs()), duration(report.getP90CostMs())));
 
@@ -68,11 +75,14 @@ public class AiEvalTextReport {
 
         sb.append("\n---------- 明细 ----------\n");
         for (AiEvalRecord record : report.getRecords()) {
-            sb.append(String.format("%-8s 返工%d 一次编译过=%s 推送=%s 耗时%s  %s%s%n",
+            sb.append(String.format("%-8s 返工%d 一次编译过=%s 推送=%s%s 耗时%s  %s%s%n",
                     record.getStage(),
                     record.getRetryCount() == null ? 0 : record.getRetryCount(),
                     yesNo(record.getFirstCompilePass()),
                     yesNo(record.getCodePushed()),
+                    record.getRedGatePassed() == null ? ""
+                            : " 红灯=" + yesNo(record.getRedGatePassed())
+                                    + " 验收=" + yesNo(record.getAcceptancePassed()),
                     duration(record.getCostMs()),
                     abbreviate(record.getRequirement()),
                     record.getFailReason() == null ? "" : "  [" + record.getFailReason() + "]"));
@@ -92,11 +102,19 @@ public class AiEvalTextReport {
         StringBuilder sb = new StringBuilder();
         sb.append("\n---------- 简历口径（核对后可直接抄）----------\n");
         sb.append(String.format(
-                "构建 %d 条难度分层的需求评测集（每条运行 %d 次，共 %d 个任务），实测端到端任务完成率 "
-                        + "%.1f%%、平均评审返工 %.1f 轮、编译一次通过率 %.1f%%、单需求中位耗时 %.1f 分钟",
+                "构建 %d 条难度分层的需求评测集（每条运行 %d 次，共 %d 个任务），实测端到端任务完成率 %.1f%%",
                 report.getRequirementCount(), report.getRepeat(), report.getTotal(),
-                report.getCompletionRate(), report.getAvgRetryCount(),
-                report.getFirstCompilePassRate(), report.getMedianCostMs() / 60000.0));
+                report.getCompletionRate()));
+        if (report.getAccepted() > 0 || report.getRedGatePassed() > 0) {
+            //完成率和达成率是两个口径：前者只证明代码编得过推得上去，
+            //后者证明需求真的实现了。面试里后者才经得起追问，所以紧跟着完成率写
+            sb.append(String.format("、需求达成率 %.1f%%（TDD 红绿门禁，验收测试先红后绿）",
+                    report.getAcceptanceRate()));
+        }
+        sb.append(String.format(
+                "、平均评审返工 %.1f 轮、编译一次通过率 %.1f%%、单需求中位耗时 %.1f 分钟",
+                report.getAvgRetryCount(), report.getFirstCompilePassRate(),
+                report.getMedianCostMs() / 60000.0));
         if (totalCostYuan != null && report.getTotal() > 0) {
             sb.append(String.format(" / token 成本约 %.2f 元",
                     totalCostYuan / report.getTotal()));

@@ -106,6 +106,24 @@ public class AiWorkflowTaskDto implements Serializable {
      */
     private List<String> acceptance;
 
+    /**
+     * TDD 的 red 门禁：先写的测试是否如预期地失败了。
+     * 一次就通过说明测试没测到新行为，是假的
+     */
+    private Boolean redGatePassed;
+
+    /**
+     * 测试先行阶段写出来的测试文件。编码阶段要拿它当需求本身来读，
+     * 同时把这些路径设为只读，防止程序员改测试凑绿灯
+     */
+    private List<String> testFiles;
+
+    /**
+     * 验收测试最终是否通过。这个才是"需求真的实现了"的硬证据，
+     * 比"编译通过并推送成功"强得多
+     */
+    private Boolean acceptancePassed;
+
     private Boolean firstCompilePass;
 
     /**
@@ -139,6 +157,30 @@ public class AiWorkflowTaskDto implements Serializable {
 
     public void setAcceptance(List<String> acceptance) {
         this.acceptance = acceptance;
+    }
+
+    public Boolean getRedGatePassed() {
+        return redGatePassed;
+    }
+
+    public List<String> getTestFiles() {
+        return testFiles;
+    }
+
+    public void setTestFiles(List<String> testFiles) {
+        this.testFiles = testFiles;
+    }
+
+    public void setRedGatePassed(Boolean redGatePassed) {
+        this.redGatePassed = redGatePassed;
+    }
+
+    public Boolean getAcceptancePassed() {
+        return acceptancePassed;
+    }
+
+    public void setAcceptancePassed(Boolean acceptancePassed) {
+        this.acceptancePassed = acceptancePassed;
     }
 
     public Boolean getFirstCompilePass() {

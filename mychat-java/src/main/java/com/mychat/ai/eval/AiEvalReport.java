@@ -38,6 +38,22 @@ public class AiEvalReport implements Serializable {
 
     private int testsPassed;
 
+    /**
+     * 红灯门禁通过数：写出来的测试确实先失败了
+     */
+    private int redGatePassed;
+
+    /**
+     * 需求达成数：红绿两道门都过
+     */
+    private int accepted;
+
+    /**
+     * 需求达成率。比完成率严格——完成率只要编译通过并推送就算，
+     * 这个要求验收测试真的从红转绿。TDD 关掉时恒为0
+     */
+    private double acceptanceRate;
+
     private long medianCostMs;
 
     /**
@@ -148,6 +164,30 @@ public class AiEvalReport implements Serializable {
 
     public void setTestsPassed(int testsPassed) {
         this.testsPassed = testsPassed;
+    }
+
+    public int getRedGatePassed() {
+        return redGatePassed;
+    }
+
+    public void setRedGatePassed(int redGatePassed) {
+        this.redGatePassed = redGatePassed;
+    }
+
+    public int getAccepted() {
+        return accepted;
+    }
+
+    public void setAccepted(int accepted) {
+        this.accepted = accepted;
+    }
+
+    public double getAcceptanceRate() {
+        return acceptanceRate;
+    }
+
+    public void setAcceptanceRate(double acceptanceRate) {
+        this.acceptanceRate = acceptanceRate;
     }
 
     public long getMedianCostMs() {

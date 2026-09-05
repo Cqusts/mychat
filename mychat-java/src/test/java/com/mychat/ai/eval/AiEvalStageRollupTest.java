@@ -7,6 +7,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -71,6 +72,44 @@ class AiEvalStageRollupTest {
 
         assertEquals(7, report.getStageFailures().get("编码实现"));
         assertEquals(100.0, report.getCodingFailureRate());
+    }
+
+    /**
+     * 测试先行的失败必须归到自己头上。
+     *
+     * 这几条原因的开头很容易撞车："测试先行阶段调用失败"以"测试"开头，
+     * 会被认成测试验证；"红灯门禁未通过"谁都不像，会掉进"其他"。
+     * 归错了阶段，"失败集中在X阶段"这句结论就是错的
+     */
+    @Test
+    void 测试先行的失败不会被认成测试验证或其他() {
+        List<AiEvalRecord> data = List.of(
+                fail("A", "红灯门禁未通过(测试未覆盖新行为)"),
+                fail("B", "测试先行阶段调用失败"),
+                fail("C", "测试先行环境不可用"),
+                fail("D", "测试先行提交测试代码失败：git commit 失败"),
+                fail("E", "停在测试先行"));
+
+        AiEvalReport report = reportOf(data);
+
+        assertEquals(5, report.getStageFailures().get("测试先行"));
+        assertNull(report.getStageFailures().get("测试验证"));
+        assertNull(report.getStageFailures().get("其他"));
+        //红灯没亮就停了，一行业务代码都没改，这不是编码能力问题
+        assertEquals(0.0, report.getCodingFailureRate());
+    }
+
+    /**
+     * 用户停止的判定在前，不能因为括号里带了阶段名就被抢走
+     */
+    @Test
+    void 停在测试先行时点停止算用户停止() {
+        List<AiEvalRecord> data = List.of(fail("A", "用户停止(测试先行)"));
+
+        AiEvalReport report = reportOf(data);
+
+        assertEquals(1, report.getStageFailures().get("用户停止"));
+        assertNull(report.getStageFailures().get("测试先行"));
     }
 
     @Test

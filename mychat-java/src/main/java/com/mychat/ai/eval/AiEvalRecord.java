@@ -41,6 +41,18 @@ public class AiEvalRecord implements Serializable {
     private Boolean testsPassed;
 
     /**
+     * 红灯门禁：测试先行阶段写出来的测试确实是失败的。
+     * 一次就能跑通说明它没测到新行为，是假测试
+     */
+    private Boolean redGatePassed;
+
+    /**
+     * 绿灯门禁：那套测试在功能实现之后全部通过了。
+     * 红绿都过才算需求真的达成——只有编译通过是证明不了的
+     */
+    private Boolean acceptancePassed;
+
+    /**
      * 失败原因，成功时为空
      */
     private String failReason;
@@ -54,6 +66,29 @@ public class AiEvalRecord implements Serializable {
 
     public boolean isSuccess() {
         return "DONE".equals(stage);
+    }
+
+    /**
+     * 需求达成：红绿两道门都过。比 isSuccess 严格得多
+     */
+    public boolean isAccepted() {
+        return Boolean.TRUE.equals(redGatePassed) && Boolean.TRUE.equals(acceptancePassed);
+    }
+
+    public Boolean getRedGatePassed() {
+        return redGatePassed;
+    }
+
+    public void setRedGatePassed(Boolean redGatePassed) {
+        this.redGatePassed = redGatePassed;
+    }
+
+    public Boolean getAcceptancePassed() {
+        return acceptancePassed;
+    }
+
+    public void setAcceptancePassed(Boolean acceptancePassed) {
+        this.acceptancePassed = acceptancePassed;
     }
 
     public String getTaskId() {
