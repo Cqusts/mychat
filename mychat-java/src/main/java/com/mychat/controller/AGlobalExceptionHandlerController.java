@@ -6,7 +6,9 @@ import com.mychat.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -36,21 +38,24 @@ public class AGlobalExceptionHandlerController extends ABaseController {
             ajaxResponse.setCode(biz.getCode() == null ? ResponseCodeEnum.CODE_600.getCode() : biz.getCode());
             ajaxResponse.setInfo(biz.getMessage());
             ajaxResponse.setStatus(STATUC_ERROR);
-        } else if (e instanceof BindException || e instanceof MethodArgumentTypeMismatchException || e instanceof HandlerMethodValidationException) {
-            //参数类型错误
-            ajaxResponse.setCode(ResponseCodeEnum.CODE_600.getCode());
-            ajaxResponse.setInfo(ResponseCodeEnum.CODE_600.getMsg());
+        } else if (e instanceof MethodArgumentNotValidException
+                || e instanceof HandlerMethodValidationException
+                || e instanceof ConstraintViolationException
+                || e instanceof BindException
+                || e instanceof MethodArgumentTypeMismatchException) {
+            //参数校验失败（含长度、非空、类型转换等）
+            ajaxResponse.setCode(ResponseCodeEnum.CODE_40001.getCode());
+            ajaxResponse.setInfo(ResponseCodeEnum.CODE_40001.getMsg());
+            ajaxResponse.setStatus(STATUC_ERROR);
+        } else if (e instanceof HttpMessageNotReadableException) {
+            //请求体格式错误
+            ajaxResponse.setCode(ResponseCodeEnum.CODE_40002.getCode());
+            ajaxResponse.setInfo(ResponseCodeEnum.CODE_40002.getMsg());
             ajaxResponse.setStatus(STATUC_ERROR);
         } else if (e instanceof DuplicateKeyException) {
             //主键冲突
             ajaxResponse.setCode(ResponseCodeEnum.CODE_601.getCode());
             ajaxResponse.setInfo(ResponseCodeEnum.CODE_601.getMsg());
-            ajaxResponse.setStatus(STATUC_ERROR);
-        } else if (e instanceof ConstraintViolationException || e instanceof BindException) {
-            //请求参数错误
-            ConstraintViolationException ce = (ConstraintViolationException) e;
-            ajaxResponse.setCode(ResponseCodeEnum.CODE_600.getCode());
-            ajaxResponse.setInfo(ResponseCodeEnum.CODE_600.getMsg());
             ajaxResponse.setStatus(STATUC_ERROR);
         } else {
             ajaxResponse.setCode(ResponseCodeEnum.CODE_500.getCode());
