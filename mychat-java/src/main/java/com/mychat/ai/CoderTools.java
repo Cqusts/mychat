@@ -9,8 +9,10 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -32,6 +34,19 @@ public class CoderTools {
      * findFiles 返回多少个候选。给太多等于没给——模型会挨个读，轮次全耗在这
      */
     private static final int MAX_RELEVANT_FILES = 8;
+
+    /**
+     * 一次批量提交的改动上限
+     */
+    private static final int MAX_BATCH_EDITS = 20;
+
+    private static final int MAX_BATCH_READS = 6;
+
+    /**
+     * 批量读的总字符上限。几个大文件全塞进来会把上下文占满，
+     * 后面每一轮都要带着它们重发一遍，反而更贵
+     */
+    private static final int MAX_BATCH_READ_CHARS = 40000;
 
     /**
      * 匹配失败时回显原文的最大行数，别把整个文件塞回上下文
@@ -245,45 +260,248 @@ public class CoderTools {
         }
         notify("正在修改 " + shortName(path) + "…");
         try {
-            if (StringTools.isEmpty(oldText)) {
-                return "oldText 不能为空，新建文件请用 createFile。";
-            }
             //这里必须读全文。用给模型看的截断版改完再写回去，
             //会把超过MAX_READ_CHARS的文件从两万字符处齐根砍断
             String raw = workspace.readFileRaw(path);
             if (raw == null) {
                 return "文件不存在：" + path;
             }
-
-            //项目是在Windows上检出的，磁盘上是CRLF，而模型吐出来的oldText永远是LF，
-            //直接indexOf必然找不到——表现就是助手一整轮都在"没找到→再试一次"里空转，
-            //一个文件都改不动。统一成LF比较，写回时只把新内容按原换行符还原，
-            //没动到的部分保持原样，避免整个文件的换行符被改掉、diff面目全非
-            Normalized file = normalize(raw);
-            String content = file.text;
-            String target = toLf(oldText);
-            String replacement = toLf(newText == null ? "" : newText);
-
-            Match match = locate(content, target);
-            if (match == null) {
-                return notFound(content, target, path);
+            EditResult result = applyOne(raw, oldText, newText, path);
+            if (result.error != null) {
+                return result.error;
             }
-            if (match.ambiguous) {
-                return "要替换的内容在文件里出现了多次，无法确定改哪一处。"
-                        + "请把 oldText 写得更长一些，带上足够的上下文使其唯一。";
-            }
-
-            String eol = dominantEol(raw);
-            String merged = raw.substring(0, file.rawOffset[match.start])
-                    + restoreEol(reindent(replacement, match.fileIndent, match.targetIndent), eol)
-                    + raw.substring(file.rawOffset[match.end]);
-            workspace.writeFile(path, merged);
+            workspace.writeFile(path, result.content);
             changedFileCount++;
             touchedFiles.add(path);
             return "已修改 " + path;
         } catch (Exception e) {
             logger.error("replaceInFile执行失败, path:{}", path, e);
             return "修改失败：" + e.getMessage();
+        }
+    }
+
+    /**
+     * 一次替换的结果：要么给出新内容，要么给出该怎么改的说明
+     */
+    private static final class EditResult {
+        String content;
+        String error;
+
+        static EditResult ok(String content) {
+            EditResult result = new EditResult();
+            result.content = content;
+            return result;
+        }
+
+        static EditResult fail(String error) {
+            EditResult result = new EditResult();
+            result.error = error;
+            return result;
+        }
+    }
+
+    /**
+     * 在一段内容上执行一处替换，不落盘。
+     *
+     * 抽出来是为了让批量修改能在同一个内存缓冲上连续改多处，
+     * 全部校验通过之后再统一写文件
+     */
+    private EditResult applyOne(String raw, String oldText, String newText, String path) {
+        if (StringTools.isEmpty(oldText)) {
+            return EditResult.fail(path + "：oldText 不能为空，新建文件请用 createFile 或在 applyEdits 里留空 oldText。");
+        }
+        //项目是在Windows上检出的，磁盘上是CRLF，而模型吐出来的oldText永远是LF，
+        //直接indexOf必然找不到——表现就是助手一整轮都在"没找到→再试一次"里空转，
+        //一个文件都改不动。统一成LF比较，写回时只把新内容按原换行符还原，
+        //没动到的部分保持原样，避免整个文件的换行符被改掉、diff面目全非
+        Normalized file = normalize(raw);
+        String content = file.text;
+        String target = toLf(oldText);
+        String replacement = toLf(newText == null ? "" : newText);
+
+        Match match = locate(content, target);
+        if (match == null) {
+            return EditResult.fail(notFound(content, target, path));
+        }
+        if (match.ambiguous) {
+            return EditResult.fail(path + "：要替换的内容在文件里出现了多次，无法确定改哪一处。"
+                    + "请把 oldText 写得更长一些，带上足够的上下文使其唯一。");
+        }
+
+        String eol = dominantEol(raw);
+        return EditResult.ok(raw.substring(0, file.rawOffset[match.start])
+                + restoreEol(reindent(replacement, match.fileIndent, match.targetIndent), eol)
+                + raw.substring(file.rawOffset[match.end]));
+    }
+
+    /**
+     * 一处待提交的改动。oldText 留空表示新建文件
+     */
+    public static class FileEdit {
+
+        private String path;
+
+        private String oldText;
+
+        private String newText;
+
+        public String getPath() {
+            return path;
+        }
+
+        public void setPath(String path) {
+            this.path = path;
+        }
+
+        public String getOldText() {
+            return oldText;
+        }
+
+        public void setOldText(String oldText) {
+            this.oldText = oldText;
+        }
+
+        public String getNewText() {
+            return newText;
+        }
+
+        public void setNewText(String newText) {
+            this.newText = newText;
+        }
+    }
+
+    @Tool(description = "一次性提交多处改动，可以跨多个文件。改一个功能通常要同时动 Controller、Service、"
+            + "Mapper 接口和 Mapper.xml，用这个一次提交完，不要一处一处调 replaceInFile。"
+            + "每一项：path 是文件路径，oldText 是要被替换的原内容（留空表示新建文件），newText 是替换后的内容。"
+            + "要么全部成功，要么全部不改——有任何一处对不上会把所有问题一次性告诉你，不会改到一半。")
+    public String applyEdits(
+            @ToolParam(description = "改动清单，每项包含 path、oldText、newText") List<FileEdit> edits) {
+        String blocked = guard("applyEdits|" + (edits == null ? 0 : edits.size()));
+        if (blocked != null) {
+            return blocked;
+        }
+        if (edits == null || edits.isEmpty()) {
+            return "改动清单是空的。";
+        }
+        if (edits.size() > MAX_BATCH_EDITS) {
+            return "一次最多提交 " + MAX_BATCH_EDITS + " 处改动，请分批。";
+        }
+        notify("正在提交 " + edits.size() + " 处改动…");
+
+        try {
+            //按文件分组：同一个文件的多处改动要落在同一个内存缓冲上连续改，
+            //否则第二处会基于旧内容定位，位置全错
+            Map<String, List<FileEdit>> byFile = new LinkedHashMap<>();
+            for (FileEdit edit : edits) {
+                if (edit == null || StringTools.isEmpty(edit.getPath())) {
+                    return "有一项没填 path。";
+                }
+                byFile.computeIfAbsent(edit.getPath(), key -> new ArrayList<>()).add(edit);
+            }
+
+            //先全部试算，一处都不落盘。
+            //这样模型能在一轮里拿到所有问题，而不是改一处失败一次、来回好几轮——
+            //每多一轮都要重发全部历史上下文，token成本是平方级涨的
+            Map<String, String> pending = new LinkedHashMap<>();
+            List<String> errors = new ArrayList<>();
+            List<String> created = new ArrayList<>();
+
+            for (Map.Entry<String, List<FileEdit>> entry : byFile.entrySet()) {
+                String path = entry.getKey();
+                String raw = workspace.readFileRaw(path);
+                boolean isNew = raw == null;
+                if (isNew) {
+                    raw = "";
+                }
+                for (FileEdit edit : entry.getValue()) {
+                    if (StringTools.isEmpty(edit.getOldText())) {
+                        if (!isNew && !raw.isEmpty()) {
+                            errors.add(path + "：这个文件已经存在，新增内容也要给出 oldText 定位插在哪里。");
+                            break;
+                        }
+                        raw = edit.getNewText() == null ? "" : edit.getNewText();
+                        created.add(path);
+                        continue;
+                    }
+                    if (isNew) {
+                        errors.add(path + "：文件不存在，无法替换。新建文件请把 oldText 留空。");
+                        break;
+                    }
+                    EditResult result = applyOne(raw, edit.getOldText(), edit.getNewText(), path);
+                    if (result.error != null) {
+                        errors.add(result.error);
+                        break;
+                    }
+                    raw = result.content;
+                }
+                pending.put(path, raw);
+            }
+
+            if (!errors.isEmpty()) {
+                return "这批改动没有提交，一个文件都没动。以下 " + errors.size() + " 处需要修正：\n\n"
+                        + String.join("\n\n", errors)
+                        + "\n\n改好之后重新提交整批。";
+            }
+
+            for (Map.Entry<String, String> entry : pending.entrySet()) {
+                workspace.writeFile(entry.getKey(), entry.getValue());
+                changedFileCount++;
+                touchedFiles.add(entry.getKey());
+            }
+            StringBuilder sb = new StringBuilder("已提交 " + edits.size() + " 处改动，涉及 "
+                    + pending.size() + " 个文件：\n");
+            for (String path : pending.keySet()) {
+                sb.append("  ").append(created.contains(path) ? "新建 " : "修改 ").append(path).append('\n');
+            }
+            sb.append("接下来调 compile 验证。");
+            return sb.toString();
+        } catch (Exception e) {
+            logger.error("applyEdits执行失败", e);
+            return "批量修改失败：" + e.getMessage();
+        }
+    }
+
+    @Tool(description = "一次读多个文件的完整内容。要改的文件确定之后用它一次性读完，"
+            + "不要一个一个调 readFile——每多一轮交互都要重发全部历史，很贵。")
+    public String readFiles(
+            @ToolParam(description = "文件路径列表，相对于仓库根目录") List<String> paths) {
+        String blocked = guard("readFiles|" + (paths == null ? "" : String.join(",", paths)));
+        if (blocked != null) {
+            return blocked;
+        }
+        if (paths == null || paths.isEmpty()) {
+            return "路径列表是空的。";
+        }
+        if (paths.size() > MAX_BATCH_READS) {
+            return "一次最多读 " + MAX_BATCH_READS + " 个文件，挑最相关的几个。";
+        }
+        notify("正在读取 " + paths.size() + " 个文件…");
+        try {
+            StringBuilder sb = new StringBuilder();
+            int budget = MAX_BATCH_READ_CHARS;
+            for (String path : paths) {
+                String content = workspace.readFile(path);
+                if (content == null) {
+                    sb.append("===== ").append(path).append(" =====\n（文件不存在）\n\n");
+                    continue;
+                }
+                if (content.length() > budget) {
+                    //总量有上限：几个大文件全塞进来会把上下文占满，
+                    //后面的轮次反而更贵
+                    content = content.substring(0, Math.max(0, budget))
+                            + "\n……（总量超限已截断，需要看剩下的部分请单独 readFile）";
+                }
+                budget -= content.length();
+                sb.append("===== ").append(path).append(" =====\n").append(content).append("\n\n");
+                if (budget <= 0) {
+                    sb.append("（剩余文件未读取，总量已达上限）\n");
+                    break;
+                }
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            logger.error("readFiles执行失败", e);
+            return "读取失败：" + e.getMessage();
         }
     }
 
@@ -583,7 +801,9 @@ public class CoderTools {
             sb.append("请从上面原样挑一段作为 oldText 重试。");
             return sb.toString();
         }
-        return "没找到要替换的内容，请先用 readFile 确认原文。"
+        //路径一定要带上：批量提交时一次会回好几条错误，
+        //不写清楚是哪个文件的，模型根本对不上号
+        return "没找到要替换的内容。文件：" + path + "。请先用 readFile 确认原文。"
                 + "换行符和行尾空格已经自动兼容，不用为这些反复重试；"
                 + "如果文件太长被截断了，请把改动落在能看到的部分。";
     }
