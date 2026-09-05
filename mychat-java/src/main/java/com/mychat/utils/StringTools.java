@@ -130,5 +130,20 @@ public class StringTools {
     public static final String getChatSessionId4Group(String groupId) {
         return encodeByMD5(groupId);
     }
+
+    /**
+     * 手机号脱敏，保留前3后4，中间四位替换为星号。
+     * <p>用于日志、后台展示等场景下避免泄露用户手机号隐私。</p>
+     *
+     * @param mobile 必须是11位数字字符串（调用方需保证已校验格式）
+     * @return 脱敏后的手机号，如 13812345678 -> 138****5678
+     * @throws IllegalArgumentException 入参为null、非11位或含非数字字符时抛出
+     */
+    public static String maskMobile(String mobile) {
+        if (mobile == null || !mobile.matches("\\d{11}")) {
+            throw new IllegalArgumentException("手机号必须为11位数字，实际: " + mobile);
+        }
+        return mobile.substring(0, 3) + "****" + mobile.substring(7);
+    }
 }
 
