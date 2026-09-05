@@ -129,7 +129,7 @@ CREATE TABLE `user_contact_apply`  (
   `apply_info` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '申请信息',
   PRIMARY KEY (`apply_id`) USING BTREE,
   UNIQUE INDEX `idx_key`(`apply_user_id`, `receive_user_id`, `contact_id`) USING BTREE,
-  INDEX `idx_last_apply_time`(`last_apply_time`) USING BTREE
+  INDEX `idx_receive_apply_time_id`(`receive_user_id`, `last_apply_time`, `apply_id`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 136923 CHARACTER SET = utf8mb4  COMMENT = '联系人申请';
 
 -- ----------------------------

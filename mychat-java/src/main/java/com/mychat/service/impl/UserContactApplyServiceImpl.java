@@ -10,6 +10,7 @@ import com.mychat.entity.po.UserContactApply;
 import com.mychat.entity.po.UserInfo;
 import com.mychat.entity.query.*;
 import com.mychat.entity.vo.PaginationResultVO;
+import com.mychat.entity.vo.UserContactApplyCursorVO;
 import com.mychat.exception.BusinessException;
 import com.mychat.mappers.GroupInfoMapper;
 import com.mychat.mappers.UserContactApplyMapper;
@@ -20,10 +21,13 @@ import com.mychat.service.UserContactService;
 import com.mychat.utils.StringTools;
 import com.mychat.websocket.MessageHandler;
 import jodd.util.ArraysUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.Resource;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -33,6 +37,8 @@ import java.util.List;
  */
 @Service("userContactApplyService")
 public class UserContactApplyServiceImpl implements UserContactApplyService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserContactApplyServiceImpl.class);
 
     @Resource
     private UserContactApplyMapper<UserContactApply, UserContactApplyQuery> userContactApplyMapper;
@@ -88,6 +94,10 @@ public class UserContactApplyServiceImpl implements UserContactApplyService {
      */
     @Override
     public Integer add(UserContactApply bean) {
+        // applyTime 非法值(0或负数)时兜底为当前系统时间戳
+        if (bean.getLastApplyTime() != null && bean.getLastApplyTime() <= 0) {
+            bean.setLastApplyTime(System.currentTimeMillis());
+        }
         return this.userContactApplyMapper.insert(bean);
     }
 
@@ -303,5 +313,45 @@ public class UserContactApplyServiceImpl implements UserContactApplyService {
             userContactMapper.insertOrUpdate(userContact);
             return;
         }
+    }
+
+    /**
+     * 游标分页查询好友申请列表，按申请时间倒序
+     */
+    @Override
+    public UserContactApplyCursorVO loadApplyByCursor(String userId, String cursor, Integer pageSize) {
+        UserContactApplyQuery query = new UserContactApplyQuery();
+        query.setReceiveUserId(userId);
+        query.setQueryContactInfo(true);
+        query.setOrderBy("last_apply_time desc, apply_id desc");
+        int size = pageSize == null ? PageSize.SIZE15.getSize() : pageSize;
+        // 解析游标 applyTime_id
+        if (cursor != null && !cursor.trim().isEmpty()) {
+            String[] parts = cursor.split("_");
+            if (parts.length != 2) {
+                logger.warn("好友申请列表游标格式非法, 返回空列表. userId:{}, cursor:{}", userId, cursor);
+                return new UserContactApplyCursorVO(new ArrayList<>(), null);
+            }
+            try {
+                Long cursorTime = Long.parseLong(parts[0]);
+                Integer cursorId = Integer.parseInt(parts[1]);
+                query.setCursorLastApplyTime(cursorTime);
+                query.setCursorApplyId(cursorId);
+            } catch (NumberFormatException e) {
+                logger.warn("好友申请列表游标解析失败, 返回空列表. userId:{}, cursor:{}", userId, cursor);
+                return new UserContactApplyCursorVO(new ArrayList<>(), null);
+            }
+        }
+        // 多取一条用于判断是否还有更多数据
+        query.setPageNo(1);
+        query.setPageSize(size + 1);
+        List<UserContactApply> list = this.findListByParam(query);
+        String nextCursor = null;
+        if (list != null && list.size() > size) {
+            UserContactApply last = list.get(size - 1);
+            nextCursor = last.getLastApplyTime() + "_" + last.getApplyId();
+            list = list.subList(0, size);
+        }
+        return new UserContactApplyCursorVO(list, nextCursor);
     }
 }

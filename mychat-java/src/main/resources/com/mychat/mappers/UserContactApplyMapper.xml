@@ -85,6 +85,10 @@
                 and last_apply_time>=#{query.lastApplyTimestamp}
             </if>
 
+            <if test="query.cursorLastApplyTime!=null and query.cursorApplyId!=null">
+                and (last_apply_time, apply_id) &lt; (#{query.cursorLastApplyTime}, #{query.cursorApplyId})
+            </if>
+
         </where>
     </sql>
 

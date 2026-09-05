@@ -59,6 +59,32 @@ public class UserContactApplyQuery extends BaseParam {
 
     private Long lastApplyTimestamp;
 
+    /**
+     * 游标中的申请时间（游标分页用）
+     */
+    private Long cursorLastApplyTime;
+
+    /**
+     * 游标中的申请ID（游标分页用）
+     */
+    private Integer cursorApplyId;
+
+    public Long getCursorLastApplyTime() {
+        return cursorLastApplyTime;
+    }
+
+    public void setCursorLastApplyTime(Long cursorLastApplyTime) {
+        this.cursorLastApplyTime = cursorLastApplyTime;
+    }
+
+    public Integer getCursorApplyId() {
+        return cursorApplyId;
+    }
+
+    public void setCursorApplyId(Integer cursorApplyId) {
+        this.cursorApplyId = cursorApplyId;
+    }
+
     public Long getLastApplyTimestamp() {
         return lastApplyTimestamp;
     }

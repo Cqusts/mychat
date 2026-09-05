@@ -4,6 +4,7 @@ import com.mychat.entity.dto.TokenUserInfoDto;
 import com.mychat.entity.po.UserContactApply;
 import com.mychat.entity.query.UserContactApplyQuery;
 import com.mychat.entity.vo.PaginationResultVO;
+import com.mychat.entity.vo.UserContactApplyCursorVO;
 
 import java.util.List;
 
@@ -91,4 +92,13 @@ public interface UserContactApplyService {
     Integer applyAdd(TokenUserInfoDto tokenUserInfoDto, String contactId, String contactType, String applyInfo);
 
     void dealWithApply(String userId, Integer applyId, Integer status);
+
+    /**
+     * 游标分页查询好友申请列表，按申请时间倒序
+     *
+     * @param userId   接收人ID
+     * @param cursor   游标，格式 applyTime_id，首屏传 null
+     * @param pageSize 每页条数
+     */
+    UserContactApplyCursorVO loadApplyByCursor(String userId, String cursor, Integer pageSize);
 }

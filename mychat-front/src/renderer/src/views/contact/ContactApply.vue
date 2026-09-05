@@ -55,28 +55,30 @@ import { useMessageCountStore } from '@/stores/MessageCountStore'
 const messageCountStore = useMessageCountStore()
 
 const applyList = ref([])
-let pageNo = 0
-let pageTotal = 1
+let cursor = null
 const loadApply = async () => {
-  pageNo++
-  if (pageNo > pageTotal) {
+  // 无更多数据时停止加载
+  if (cursor === '') {
     return
   }
   let result = await proxy.Request({
     url: proxy.Api.loadApply,
     params: {
-      pageNo: pageNo
+      cursor: cursor || '',
+      pageSize: 15
     }
   })
   if (!result) {
     return
   }
-  pageTotal = result.data.pageTotal
-  if (result.data.pageNo == 1) {
+  if (cursor == null) {
     applyList.value = []
   }
   applyList.value = applyList.value.concat(result.data.list)
-  pageNo = result.data.pageNo
+  cursor = result.data.nextCursor
+  if (cursor == null) {
+    cursor = ''
+  }
 }
 
 loadApply()
@@ -97,7 +99,7 @@ const dealWithApply = (applyId, contactType, status) => {
         return
       }
       //初始化页面
-      pageNo = 0
+      cursor = null
       loadApply()
       //如果是用户
       if (contactType == 0 && status == 1) {
@@ -115,7 +117,7 @@ watch(
   (newVal, oldVal) => {
     if (newVal) {
       console.log(newVal)
-      pageNo = 0
+      cursor = null
       loadApply()
     }
   },

@@ -12,6 +12,7 @@ import com.mychat.entity.po.UserInfo;
 import com.mychat.entity.query.UserContactApplyQuery;
 import com.mychat.entity.query.UserContactQuery;
 import com.mychat.entity.vo.PaginationResultVO;
+import com.mychat.entity.vo.UserContactApplyCursorVO;
 import com.mychat.ai.AiAgentDefinition;
 import com.mychat.ai.AiAgentRegistry;
 import com.mychat.entity.vo.AiAgentVO;
@@ -116,15 +117,9 @@ public class UserContactController extends ABaseController {
 
     @RequestMapping("/loadApply")
     @GlobalInterceptor
-    public ResponseVO loadApply(HttpServletRequest request, Integer pageNo) {
+    public ResponseVO loadApply(HttpServletRequest request, String cursor, Integer pageSize) {
         TokenUserInfoDto tokenUserInfoDto = getTokenUserInfo(request);
-        UserContactApplyQuery userContactApplyQuery = new UserContactApplyQuery();
-        userContactApplyQuery.setOrderBy("last_apply_time desc");
-        userContactApplyQuery.setReceiveUserId(tokenUserInfoDto.getUserId());
-        userContactApplyQuery.setQueryContactInfo(true);
-        userContactApplyQuery.setPageNo(pageNo);
-        userContactApplyQuery.setPageSize(PageSize.SIZE15.getSize());
-        PaginationResultVO resultVO = userContactApplyService.findListByPage(userContactApplyQuery);
+        UserContactApplyCursorVO resultVO = userContactApplyService.loadApplyByCursor(tokenUserInfoDto.getUserId(), cursor, pageSize);
         return getSuccessResponseVO(resultVO);
     }
 
