@@ -130,5 +130,19 @@ public class StringTools {
     public static final String getChatSessionId4Group(String groupId) {
         return encodeByMD5(groupId);
     }
+
+    /**
+     * 手机号脱敏：中间四位替换为星号，保留前3后4。
+     * null 或长度不等于 11 时原样返回，不校验号码格式。
+     *
+     * @param phone 手机号
+     * @return 脱敏后的字符串
+     */
+    public static String desensitizePhone(String phone) {
+        if (phone == null || phone.length() != 11) {
+            return phone;
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(7);
+    }
 }
 
