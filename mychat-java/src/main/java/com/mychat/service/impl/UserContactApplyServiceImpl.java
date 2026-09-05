@@ -69,6 +69,14 @@ public class UserContactApplyServiceImpl implements UserContactApplyService {
     }
 
     /**
+     * 游标分页查询申请列表（按apply_id倒序）
+     */
+    @Override
+    public List<UserContactApply> findApplyListByPage(UserContactApplyQuery param) {
+        return this.userContactApplyMapper.selectApplyListByPage(param);
+    }
+
+    /**
      * 分页查询方法
      */
     @Override

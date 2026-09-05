@@ -2,10 +2,17 @@ package com.mychat.mappers;
 
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 联系人申请 数据库操作接口
  */
 public interface UserContactApplyMapper<T,P> extends BaseMapper<T,P> {
+
+	/**
+	 * 游标分页查询申请列表（按apply_id倒序）
+	 */
+	 List<T> selectApplyListByPage(@Param("query") P p);
 
 	/**
 	 * 根据ApplyId更新

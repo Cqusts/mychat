@@ -59,6 +59,11 @@ public class UserContactApplyQuery extends BaseParam {
 
     private Long lastApplyTimestamp;
 
+    /**
+     * 游标分页：上一页最后一条申请的apply_id，首页传Long.MAX_VALUE
+     */
+    private Long lastApplyId;
+
     public Long getLastApplyTimestamp() {
         return lastApplyTimestamp;
     }
@@ -169,5 +174,13 @@ public class UserContactApplyQuery extends BaseParam {
 
     public void setQueryContactInfo(Boolean queryContactInfo) {
         this.queryContactInfo = queryContactInfo;
+    }
+
+    public Long getLastApplyId() {
+        return lastApplyId;
+    }
+
+    public void setLastApplyId(Long lastApplyId) {
+        this.lastApplyId = lastApplyId;
     }
 }

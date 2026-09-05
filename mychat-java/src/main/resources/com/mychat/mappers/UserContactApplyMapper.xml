@@ -113,6 +113,34 @@
         </if>
     </select>
 
+    <!-- 游标分页查询集合（按apply_id倒序，首页lastApplyId传Long.MAX_VALUE）-->
+    <select id="selectApplyListByPage" resultMap="base_result_map">
+        SELECT
+        a.*
+        <if test="query.queryContactInfo">
+            ,CASE
+            WHEN a.contact_type = 0 THEN u.nick_name
+            WHEN a.contact_type = 1 THEN g.group_name
+            END as contactName
+        </if>
+        FROM
+        user_contact_apply a
+        <if test="query.queryContactInfo">
+            LEFT JOIN user_info u ON u.user_id = a.apply_user_id and a.receive_user_id = #{query.receiveUserId}
+            LEFT JOIN group_info g ON g.group_id = a.contact_id and a.receive_user_id = #{query.receiveUserId}
+        </if>
+        <where>
+            <if test="query.receiveUserId != null and query.receiveUserId!=''">
+                and a.receive_user_id = #{query.receiveUserId}
+            </if>
+            <if test="query.lastApplyId != null">
+                and a.apply_id &lt; #{query.lastApplyId}
+            </if>
+        </where>
+        order by a.apply_id desc
+        limit #{query.pageSize}
+    </select>
+
     <!-- 查询数量-->
     <select id="selectCount" resultType="java.lang.Integer">
         SELECT count(1) FROM user_contact_apply

@@ -29,6 +29,11 @@ public interface UserContactApplyService {
     PaginationResultVO<UserContactApply> findListByPage(UserContactApplyQuery param);
 
     /**
+     * 游标分页查询申请列表（按apply_id倒序）
+     */
+    List<UserContactApply> findApplyListByPage(UserContactApplyQuery param);
+
+    /**
      * 新增
      */
     Integer add(UserContactApply bean);
