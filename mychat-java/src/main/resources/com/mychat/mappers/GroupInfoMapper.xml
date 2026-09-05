@@ -19,6 +19,8 @@
         <result column="join_type" property="joinType"/>
         <!--状态 1:正常 0:解散-->
         <result column="status" property="status"/>
+        <!--是否仅群主可发言 0:否 1:是-->
+        <result column="owner_only_speak" property="ownerOnlySpeak"/>
     </resultMap>
 
 
@@ -26,7 +28,7 @@
     <sql id="base_column_list">
         group_id
         ,group_name,group_owner_id,create_time,group_notice,
-		 join_type,status
+		 join_type,status,owner_only_speak
     </sql>
 
     <sql id="base_condition_filed">
@@ -135,6 +137,9 @@
             <if test="bean.status != null">
                 status,
             </if>
+            <if test="bean.ownerOnlySpeak != null">
+                owner_only_speak,
+            </if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="bean.groupId!=null">
@@ -157,6 +162,9 @@
             </if>
             <if test="bean.status!=null">
                 #{bean.status},
+            </if>
+            <if test="bean.ownerOnlySpeak!=null">
+                #{bean.ownerOnlySpeak},
             </if>
         </trim>
     </insert>
@@ -186,6 +194,9 @@
             <if test="bean.status != null">
                 status,
             </if>
+            <if test="bean.ownerOnlySpeak != null">
+                owner_only_speak,
+            </if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="bean.groupId!=null">
@@ -208,6 +219,9 @@
             </if>
             <if test="bean.status!=null">
                 #{bean.status},
+            </if>
+            <if test="bean.ownerOnlySpeak!=null">
+                #{bean.ownerOnlySpeak},
             </if>
         </trim>
         on DUPLICATE key update

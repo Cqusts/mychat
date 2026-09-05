@@ -52,6 +52,11 @@ public class GroupInfo implements Serializable {
      */
     private Integer status;
 
+    /**
+     * 是否仅群主可发言 0:否 1:是
+     */
+    private Integer ownerOnlySpeak;
+
     private Integer memberCount;
 
     private String groupOwnerNickName;
@@ -111,6 +116,14 @@ public class GroupInfo implements Serializable {
 
     public Integer getStatus() {
         return this.status;
+    }
+
+    public void setOwnerOnlySpeak(Integer ownerOnlySpeak) {
+        this.ownerOnlySpeak = ownerOnlySpeak;
+    }
+
+    public Integer getOwnerOnlySpeak() {
+        return this.ownerOnlySpeak;
     }
 
     public Integer getMemberCount() {
