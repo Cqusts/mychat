@@ -1,5 +1,6 @@
 package com.mychat.ai;
 
+import com.mychat.ai.index.CodeIndex;
 import com.mychat.service.AiStreamCallback;
 import com.mychat.utils.StringTools;
 import org.slf4j.Logger;
@@ -26,6 +27,11 @@ public class CoderTools {
     private static final Logger logger = LoggerFactory.getLogger(CoderTools.class);
 
     private static final int MAX_SEARCH_HITS = 40;
+
+    /**
+     * findFiles 返回多少个候选。给太多等于没给——模型会挨个读，轮次全耗在这
+     */
+    private static final int MAX_RELEVANT_FILES = 8;
 
     /**
      * 匹配失败时回显原文的最大行数，别把整个文件塞回上下文
@@ -120,7 +126,69 @@ public class CoderTools {
         return budget;
     }
 
-    @Tool(description = "按关键词搜索项目代码，返回匹配的文件路径、行号和该行内容。改代码前先用它定位相关文件。")
+    @Tool(description = "把需求原话丢进来，直接找出最可能要改的文件，并列出每个文件里有哪些类和方法。"
+            + "这是改代码的第一步，比 searchCode 好用得多——它能处理中文需求，"
+            + "不需要你先猜代码里用的是哪个英文单词。")
+    public String findFiles(
+            @ToolParam(description = "需求描述，直接写中文原话即可，比如「会话列表支持按昵称模糊搜索」") String requirement) {
+        String blocked = guard("findFiles|" + requirement);
+        if (blocked != null) {
+            return blocked;
+        }
+        notify("正在定位相关文件…");
+        try {
+            if (StringTools.isEmpty(requirement)) {
+                return "需求描述不能为空。";
+            }
+            List<CodeIndex.Hit> hits = workspace.getCodeIndex().search(requirement, MAX_RELEVANT_FILES);
+            if (hits.isEmpty()) {
+                return "没有定位到相关文件。换个说法再试一次，或者用 searchCode 搜具体的类名。";
+            }
+            StringBuilder sb = new StringBuilder("按相关度排序，最可能要改的文件：\n");
+            int index = 1;
+            for (CodeIndex.Hit hit : hits) {
+                sb.append(index++).append(". ").append(hit.getDocument().getPath()).append('\n');
+                String outline = hit.getDocument().getOutline();
+                if (!outline.isEmpty()) {
+                    sb.append("     包含：").append(outline).append('\n');
+                }
+            }
+            sb.append("\n接下来用 readFile 或 outline 看清楚再动手改。"
+                    + "注意这个项目是分层的：改一个功能通常要动 Controller、Service、Mapper 接口和 Mapper.xml 四处。");
+            return sb.toString();
+        } catch (Exception e) {
+            logger.error("findFiles执行失败, requirement:{}", requirement, e);
+            return "定位失败：" + e.getMessage();
+        }
+    }
+
+    @Tool(description = "只看一个文件的骨架（有哪些类、方法、字段），不返回方法体。"
+            + "想确认某个文件是不是要找的那个、或者想知道该调哪个方法时用它，比 readFile 省得多。")
+    public String outline(
+            @ToolParam(description = "相对于仓库根目录的文件路径") String path) {
+        String blocked = guard("outline|" + path);
+        if (blocked != null) {
+            return blocked;
+        }
+        notify("正在查看 " + shortName(path) + " 的结构…");
+        try {
+            var document = workspace.getCodeIndex().getDocument(path);
+            if (document == null) {
+                return "索引里没有这个文件：" + path + "。用 findFiles 重新定位，或者用 readFile 直接读。";
+            }
+            List<String> symbols = document.getSymbolList();
+            if (symbols.isEmpty()) {
+                return path + " 里没有解析出类或方法（可能是配置文件），直接用 readFile 读。";
+            }
+            return path + " 包含：\n  " + String.join("\n  ", symbols);
+        } catch (Exception e) {
+            logger.error("outline执行失败, path:{}", path, e);
+            return "查看失败：" + e.getMessage();
+        }
+    }
+
+    @Tool(description = "按关键词搜索项目代码，返回匹配的文件路径、行号和该行内容。"
+            + "已知具体类名/方法名时用它；只有中文需求描述时先用 findFiles。")
     public String searchCode(
             @ToolParam(description = "要搜索的关键词，比如类名、方法名、字段名") String keyword,
             @ToolParam(required = false, description = "限定文件后缀，比如 .java 或 .vue，不填则搜全部") String extension) {

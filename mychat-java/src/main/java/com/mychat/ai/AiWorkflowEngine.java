@@ -58,6 +58,28 @@ public class AiWorkflowEngine {
      * 每个阶段都追加这句：流程由系统调度，模型不要自己@人，
      * 否则会把原有的自由对话链路也拉起来，两套调度打架
      */
+    /**
+     * 项目结构地图，注入编码阶段的system prompt。
+     *
+     * 评测数据显示：需求里点名了类/表的4条通过3.5条，只描述行为、要自己定位的6条全灭。
+     * 与其让模型从零摸索分层约定，不如开局就把地图给它——这几行的成本，
+     * 比它用十几次工具调用去试出来便宜得多
+     */
+    private static final String PROJECT_MAP =
+            "\n\n【项目结构】后端 mychat-java，前端 mychat-front，建表脚本 mychat.sql。"
+                    + "后端是标准分层，加一个功能通常要一路动下来："
+                    + "\n  controller/       接口入口和参数校验"
+                    + "\n  service/ + service/impl/   业务逻辑"
+                    + "\n  mappers/          Mapper接口"
+                    + "\n  resources/com/mychat/mappers/*.xml   真正的SQL"
+                    + "\n  entity/po/        数据库实体   entity/query/  查询条件"
+                    + "\n  entity/dto/       传输对象     entity/vo/     返回给前端的对象"
+                    + "\n  entity/enums/     枚举         entity/constants/Constants  常量"
+                    + "\n  websocket/        Netty长连接与消息广播"
+                    + "\n改数据库字段要同时改：entity/po 里的实体、对应的 Mapper.xml、以及 mychat.sql。"
+                    + "\n命名是对应的：会话=ChatSession，消息=ChatMessage，好友/联系人=UserContact，"
+                    + "群=GroupInfo，用户=UserInfo。";
+
     private static final String NO_MENTION_RULE =
             "\n注意：流程的下一棒由系统自动调度，你不需要、也不要@任何人。";
 
@@ -568,13 +590,20 @@ public class AiWorkflowEngine {
 
         String systemPrompt = personaOf(agent)
                 + "\n你现在在一条需求流水线上工作，负责【编码实现】这一环，要真的改代码。"
-                + "工作方式：先用 searchCode 定位相关文件，用 readFile 看清楚现有实现，"
-                + "再用 replaceInFile 修改或 createFile 新建，最后必须调用 compile 验证。"
-                + "编译不通过就根据报错继续修，直到通过为止。"
-                + "注意几点：改动要小而准，只做方案要求的事，不要顺手重构无关代码；"
+                + PROJECT_MAP
+                + "\n固定的工作顺序，别跳步："
+                + "\n1. 先调 findFiles，把需求原话直接丢进去，它会按相关度给出最该改的文件；"
+                + "\n2. 对候选文件调 outline 看骨架，确认是不是要找的那个（比 readFile 省很多）；"
+                + "\n3. 选定之后再 readFile 看清楚现有实现；"
+                + "\n4. 用 replaceInFile 改或 createFile 新建；"
+                + "\n5. 最后必须调 compile 验证，不通过就根据报错继续修。"
+                + "\n注意几点：改动要小而准，只做方案要求的事，不要顺手重构无关代码；"
                 + "replaceInFile 的 oldText 只要能唯一定位就行，换行符和缩进工具会自动兼容，"
                 + "如果提示没找到，按它回显的原文重试一次即可，不要在同一处反复试；"
-                + "不要编造项目里不存在的类或方法，拿不准就先 readFile 确认。"
+                + "不要编造项目里不存在的类或方法，拿不准就先 outline 或 readFile 确认。"
+                + "你只有60次工具调用的预算，别把它耗在漫无目的的搜索上——"
+                + "findFiles 一次就该让你知道去哪，如果两次都没定位到，"
+                + "直接说明卡在哪里并结束，不要硬试。"
                 + "全部改完并编译通过后，用一段话说明你改了哪些文件、每个文件做了什么。"
                 + STAGE_RULES;
 
@@ -684,7 +713,7 @@ public class AiWorkflowEngine {
         String systemPrompt = personaOf(agent)
                 + "\n你现在在一条需求流水线上工作，负责【测试验证】这一环。"
                 + "程序员刚改完代码并推到了分支，你要做的是："
-                + "先用 searchCode 和 readFile 看清楚这次实际改了什么（看代码，不要只看方案）；"
+                + "先用 findFiles 或 searchCode 配合 readFile 看清楚这次实际改了什么（看代码，不要只看方案）；"
                 + "然后针对改动写JUnit测试，放在 mychat-java/src/test/java/ 下对应的包里；"
                 + "写完调用 runTests 跑起来，不通过就修，直到通过。"
                 + "重要约束：只测这次改动相关的逻辑，不要给整个项目补测试；"

@@ -1,5 +1,6 @@
 package com.mychat.ai;
 
+import com.mychat.ai.index.CodeIndex;
 import com.mychat.utils.StringTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -161,6 +162,8 @@ public class CoderWorkspace {
         if (!checkout.success()) {
             throw new IllegalStateException("切换分支失败：" + checkout.output);
         }
+        //工作区内容变了，索引作废，下次用到时重建
+        codeIndex = null;
         logger.info("工作区已切到分支 {}（基于 origin/{}）", branch, baseBranch);
     }
 
@@ -311,6 +314,19 @@ public class CoderWorkspace {
     /**
      * 给模型看的读取，超长会截断，避免一个文件就把上下文吃满
      */
+    /**
+     * 代码检索索引。懒加载，prepareBranch 时作废重建——
+     * 每个任务都会 checkout -B 重置工作区，索引跟着任务生命周期走正好
+     */
+    private volatile CodeIndex codeIndex;
+
+    public synchronized CodeIndex getCodeIndex() {
+        if (codeIndex == null) {
+            codeIndex = CodeIndex.build(rootPath());
+        }
+        return codeIndex;
+    }
+
     public String readFile(String relativePath) throws Exception {
         String content = readFileRaw(relativePath);
         if (content == null) {
@@ -351,37 +367,42 @@ public class CoderWorkspace {
 
     /**
      * 按关键词搜代码。自己遍历而不是调用grep：
-     * Windows上没有grep，调外部命令还得考虑各平台差异
+     * Windows上没有grep，调外部命令还得考虑各平台差异。
+     *
+     * 文件的遍历顺序按检索索引的相关度来，不是文件系统顺序。
+     * 之前是撞到哪个算哪个、凑够40条就停，搜"会话"返回的是最先撞上的40行，
+     * 和需求相不相关全看运气——模型拿到一堆没排序的行只能瞎猜
      */
     public List<String> searchCode(String keyword, String extension, int maxHits) throws Exception {
         List<String> hits = new ArrayList<>();
         Path root = rootPath();
         String lowerKeyword = keyword.toLowerCase();
-        try (var stream = Files.walk(root)) {
-            for (Path path : (Iterable<Path>) stream.filter(Files::isRegularFile)::iterator) {
-                if (hits.size() >= maxHits) {
-                    break;
-                }
-                String relative = root.relativize(path).toString().replace('\\', '/');
-                //跳过构建产物和依赖目录，不然全是噪音
-                if (relative.startsWith(".git/") || relative.contains("/target/")
-                        || relative.contains("/node_modules/") || relative.contains("/out/")) {
-                    continue;
-                }
-                if (!StringTools.isEmpty(extension) && !relative.endsWith(extension)) {
-                    continue;
-                }
-                List<String> lines;
-                try {
-                    lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-                } catch (Exception ignore) {
-                    //二进制文件读不了，跳过
-                    continue;
-                }
-                for (int i = 0; i < lines.size() && hits.size() < maxHits; i++) {
-                    if (lines.get(i).toLowerCase().contains(lowerKeyword)) {
-                        hits.add(relative + ":" + (i + 1) + ": " + lines.get(i).trim());
-                    }
+
+        List<String> ordered = new ArrayList<>();
+        for (CodeIndex.Hit hit : getCodeIndex().search(keyword, 200)) {
+            ordered.add(hit.getDocument().getPath());
+        }
+
+        for (String relative : ordered) {
+            if (hits.size() >= maxHits) {
+                break;
+            }
+            if (!StringTools.isEmpty(extension) && !relative.endsWith(extension)) {
+                continue;
+            }
+            List<String> lines;
+            try {
+                lines = Files.readAllLines(root.resolve(relative), StandardCharsets.UTF_8);
+            } catch (Exception ignore) {
+                continue;
+            }
+            //每个文件最多回三行：与其把一个文件的匹配刷满整个结果，
+            //不如让模型看到更多不同的文件
+            int perFile = 0;
+            for (int i = 0; i < lines.size() && hits.size() < maxHits && perFile < 3; i++) {
+                if (lines.get(i).toLowerCase().contains(lowerKeyword)) {
+                    hits.add(relative + ":" + (i + 1) + ": " + lines.get(i).trim());
+                    perFile++;
                 }
             }
         }
