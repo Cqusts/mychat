@@ -1,6 +1,7 @@
 package com.mychat.controller;
 
 import com.mychat.annotation.GlobalInterceptor;
+import com.mychat.annotation.ValidMessageContent;
 import com.mychat.entity.config.AppConfig;
 import com.mychat.entity.constants.Constants;
 import com.mychat.entity.dto.MessageSendDto;
@@ -19,6 +20,7 @@ import com.mychat.utils.StringTools;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,7 +30,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -36,6 +37,7 @@ import java.io.OutputStream;
 
 @RestController
 @RequestMapping("/chat")
+@Validated
 public class ChatController extends ABaseController {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
@@ -100,7 +102,7 @@ public class ChatController extends ABaseController {
     @GlobalInterceptor
     public ResponseVO sendMessage(HttpServletRequest request,
                                   @NotEmpty String contactId,
-                                  @NotEmpty @Size(max = 500) String messageContent,
+                                  @NotEmpty @ValidMessageContent String messageContent,
                                   @NotNull Integer messageType,
                                   Long fileSize,
                                   String fileName,

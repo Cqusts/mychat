@@ -46,11 +46,17 @@ public class AGlobalExceptionHandlerController extends ABaseController {
             ajaxResponse.setCode(ResponseCodeEnum.CODE_601.getCode());
             ajaxResponse.setInfo(ResponseCodeEnum.CODE_601.getMsg());
             ajaxResponse.setStatus(STATUC_ERROR);
-        } else if (e instanceof ConstraintViolationException || e instanceof BindException) {
-            //请求参数错误
-            ConstraintViolationException ce = (ConstraintViolationException) e;
-            ajaxResponse.setCode(ResponseCodeEnum.CODE_600.getCode());
-            ajaxResponse.setInfo(ResponseCodeEnum.CODE_600.getMsg());
+        } else if (e instanceof ConstraintViolationException || e instanceof HandlerMethodValidationException) {
+            //请求参数错误：若因消息内容超长触发，返回明确的 40001；否则返回通用 600
+            ConstraintViolationException cve = (ConstraintViolationException) e;
+            String msg = cve.getConstraintViolations().isEmpty() ? "" : cve.getConstraintViolations().iterator().next().getMessage();
+            if ("消息内容长度超出限制".equals(msg)) {
+                ajaxResponse.setCode(ResponseCodeEnum.CODE_40001.getCode());
+                ajaxResponse.setInfo(ResponseCodeEnum.CODE_40001.getMsg());
+            } else {
+                ajaxResponse.setCode(ResponseCodeEnum.CODE_600.getCode());
+                ajaxResponse.setInfo(ResponseCodeEnum.CODE_600.getMsg());
+            }
             ajaxResponse.setStatus(STATUC_ERROR);
         } else {
             ajaxResponse.setCode(ResponseCodeEnum.CODE_500.getCode());
