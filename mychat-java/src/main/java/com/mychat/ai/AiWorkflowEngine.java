@@ -920,16 +920,24 @@ public class AiWorkflowEngine {
         archive(task, success ? null : "方案未通过评审");
     }
 
+    /**
+     * 流程崩了的兜底出口。
+     *
+     * 群里必须说清楚停在哪一步、因为什么。之前这里只有一句
+     * "处理这个需求时出错了"，用户看到它完全不知道是网络断了、还是Key没配、
+     * 还是mvn起不来，只能去翻服务端日志——而真因其实早就拿在手里了
+     */
     private AiWorkflowTaskDto failTask(AiWorkflowTaskDto task, String reason) {
         logger.error("流水线终止, taskId:{}, reason:{}", task.getTaskId(), reason);
+        String stageDesc = stageDescOf(task.getStage());
         task.setStage(AiWorkflowStageEnum.FAILED.name());
         saveTask(task);
         TokenUserInfoDto entryAgent = tokenOf(requirementAgentId);
         if (entryAgent != null) {
-            String at = StringTools.isEmpty(task.getRequesterNickName())
-                    ? "" : "@" + task.getRequesterNickName() + " ";
             postAgentMessage(entryAgent, task.getGroupId(),
-                    at + "抱歉，处理这个需求时出错了，流程中断。可以过一会儿重新@我试试。");
+                    atRequester(task) + "这个需求没能处理完，流程停在【" + stageDesc + "】。\n原因："
+                            + tailOf(reason, MAX_ERROR_EXCERPT)
+                            + "\n没有提交也没有推送任何代码。修好之后重新@我提一次。");
         }
         archive(task, reason);
         return null;
