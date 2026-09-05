@@ -5,6 +5,7 @@ import com.mychat.entity.dto.TokenUserInfoDto;
 import com.mychat.entity.dto.UserContactSearchResultDto;
 import com.mychat.entity.enums.PageSize;
 import com.mychat.entity.enums.ResponseCodeEnum;
+import com.mychat.entity.enums.UserContactApplyStatusEnum;
 import com.mychat.entity.enums.UserContactStatusEnum;
 import com.mychat.entity.enums.UserContactTypeEnum;
 import com.mychat.entity.po.UserContact;
@@ -124,6 +125,26 @@ public class UserContactController extends ABaseController {
         userContactApplyQuery.setQueryContactInfo(true);
         userContactApplyQuery.setPageNo(pageNo);
         userContactApplyQuery.setPageSize(PageSize.SIZE15.getSize());
+        PaginationResultVO resultVO = userContactApplyService.findListByPage(userContactApplyQuery);
+        return getSuccessResponseVO(resultVO);
+    }
+
+    /**
+     * 好友申请列表按申请时间倒序分页。
+     * status 不传默认 0（仅待处理），传 -1 查全部状态；pageNo/pageSize 控制分页。
+     */
+    @RequestMapping("/loadApplyPage")
+    @GlobalInterceptor
+    public ResponseVO loadApplyPage(HttpServletRequest request, Integer pageNo, Integer pageSize, Integer status) {
+        TokenUserInfoDto tokenUserInfoDto = getTokenUserInfo(request);
+        UserContactApplyQuery userContactApplyQuery = new UserContactApplyQuery();
+        userContactApplyQuery.setOrderBy("last_apply_time desc");
+        userContactApplyQuery.setReceiveUserId(tokenUserInfoDto.getUserId());
+        userContactApplyQuery.setQueryContactInfo(true);
+        userContactApplyQuery.setPageNo(pageNo);
+        userContactApplyQuery.setPageSize(pageSize == null ? PageSize.SIZE15.getSize() : pageSize);
+        // 默认只查待处理，-1 表示查全部
+        userContactApplyQuery.setStatus(status == null ? UserContactApplyStatusEnum.INIT.getStatus() : status);
         PaginationResultVO resultVO = userContactApplyService.findListByPage(userContactApplyQuery);
         return getSuccessResponseVO(resultVO);
     }
